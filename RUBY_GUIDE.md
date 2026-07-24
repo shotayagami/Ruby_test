@@ -19,6 +19,8 @@
 各章の詳細は [docs/](docs/) ディレクトリを参照してください。
 
 - [13. テスト](docs/13_テスト.md) - Minitest、RSpec、テストのベストプラクティス
+- [よく使われるGem解説](docs/gems/README.md) - RSpec、Devise、Sidekiq などの主要Gem
+- [Ruby on Rails 入門ガイド](docs/rails/README.md) - MVC、ActiveRecord、ルーティングからデプロイまで
 
 ---
 
