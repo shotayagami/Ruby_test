@@ -26,10 +26,11 @@
 
 モデルは「テーブル1つ」に対応するRubyクラスです。データの読み書き、バリデーション、業務ロジックを担当します。
 
-```
-User (app/models/user.rb) ──継承──▶ ApplicationRecord ──継承──▶ ActiveRecord::Base
-   │
-   └─対応─▶ users テーブル
+```mermaid
+flowchart LR
+    User["User (app/models/user.rb)"] -->|"継承"| AppRecord["ApplicationRecord"]
+    AppRecord -->|"継承"| ARBase["ActiveRecord::Base"]
+    User -.->|"対応"| users["users テーブル"]
 ```
 
 ### 命名規約（Convention over Configuration）
@@ -115,7 +116,7 @@ Railsは「型を引数で渡してジェネレータがマイグレーション
 
 生成されるファイル:
 
-```
+```text
 db/migrate/20260725093000_create_users.rb  # マイグレーション
 app/models/user.rb                          # モデル
 test/models/user_test.rb                    # テスト（RSpec導入時はspec配下）
@@ -724,17 +725,17 @@ user.errors.full_messages_for(:name) # 特定属性の完全メッセージ
 
 ### 保存時のライフサイクル
 
-```
-save/create/update
-  → before_validation  … 入力の正規化（トリム等）
-  → （バリデーション）
-  → after_validation
-  → before_save
-  → before_create      … 新規のみ（更新時は before_update）
-  → （DBへINSERT/UPDATE）
-  → after_create       … 新規のみ（更新時は after_update）
-  → after_save
-  → after_commit       … トランザクション確定後（メール送信等に最適）
+```mermaid
+flowchart TD
+    A["save / create / update"] --> B["before_validation … 入力の正規化（トリム等）"]
+    B --> C["（バリデーション）"]
+    C --> D["after_validation"]
+    D --> E["before_save"]
+    E --> F["before_create … 新規のみ（更新時は before_update）"]
+    F --> G["（DBへ INSERT / UPDATE）"]
+    G --> H["after_create … 新規のみ（更新時は after_update）"]
+    H --> I["after_save"]
+    I --> J["after_commit … トランザクション確定後（メール送信等に最適）"]
 ```
 
 ### 主なコールバック

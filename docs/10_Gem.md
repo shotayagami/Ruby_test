@@ -1,6 +1,7 @@
 # 第10章: Gem（パッケージ管理）
 
 ## 目次
+
 1. [Gemとは](#1-gemとは)
 2. [Gemのインストールと管理](#2-gemのインストールと管理)
 3. [Bundler](#3-bundler)
@@ -40,18 +41,18 @@ RubyGemsは言語標準に統合されたパッケージ管理システムです
 
 ### Gemの構造
 
-```
-my_gem/
-├── lib/
-│   ├── my_gem.rb
-│   └── my_gem/
-│       ├── version.rb
-│       └── ...
-├── spec/ または test/
-├── README.md
-├── LICENSE
-├── Gemfile
-└── my_gem.gemspec
+```mermaid
+flowchart TD
+    root["my_gem/"] --> lib["lib/"]
+    lib --> libmain["my_gem.rb"]
+    lib --> libdir["my_gem/"]
+    libdir --> version["version.rb"]
+    libdir --> etc["..."]
+    root --> spec["spec/ または test/"]
+    root --> readme["README.md"]
+    root --> license["LICENSE"]
+    root --> gemfile["Gemfile"]
+    root --> gemspec["my_gem.gemspec"]
 ```
 
 ---

@@ -15,6 +15,7 @@ gem 'rake'
 > **🐍 Python相当:** タスクランナーは **invoke**（`tasks.py` に `@task` を定義）が最も近い。環境ごとにタスクを回すなら **nox** / **tox**、伝統的な **Makefile** も選択肢。なお `rake` にあるパッケージビルド機能は Python では別途 build / hatch などで担う。
 
 **🐍 Python:**
+
 ```bash
 pip install invoke  # または nox / tox
 ```
@@ -40,6 +41,7 @@ end
 > **🐍 Python相当:** `Rakefile` にタスクを書く ↔ invoke では `tasks.py` に関数を定義しデコレータを付ける。`rake hello` ↔ `invoke hello`。
 
 **🐍 Python:**
+
 ```python
 # tasks.py
 from invoke import task
@@ -69,6 +71,7 @@ rake -T test
 > **🐍 Python相当:** `rake -T`（説明付き一覧）↔ `invoke --list`（または `invoke -l`）。docstring がそのまま説明として表示される。
 
 **🐍 Python:**
+
 ```bash
 invoke --list   # タスク一覧
 invoke -l
@@ -148,6 +151,7 @@ task :release => [:test, :build, :deploy]
 > **🐍 Python相当:** 依存タスク（prerequisites）↔ invoke の `@task(pre=[...])`。事前に実行するタスクを列挙する。`post=[...]` で後処理も指定できる。
 
 **🐍 Python:**
+
 ```python
 from invoke import task
 
@@ -214,6 +218,7 @@ end
 > **🐍 Python相当:** 名前空間（`namespace :db`）↔ invoke の **Collection**。タスクを `Collection` にまとめると `invoke db.migrate` のようにドット区切りで呼び出せる。
 
 **🐍 Python:**
+
 ```python
 # tasks.py
 from invoke import task, Collection

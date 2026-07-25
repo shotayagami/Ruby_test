@@ -1,6 +1,7 @@
 # Ruby 基礎ガイド
 
 ## 目次
+
 1. [環境構築](#1-環境構築)
 2. [基本文法](#2-基本文法)
 3. [データ型](#3-データ型)
@@ -29,6 +30,7 @@
 ### Rubyのインストール
 
 **Windows:**
+
 ```bash
 # RubyInstallerを使用（推奨）
 # https://rubyinstaller.org/ からダウンロード
@@ -38,6 +40,7 @@ ruby -v
 ```
 
 **Mac:**
+
 ```bash
 # Homebrewを使用
 brew install ruby
@@ -49,6 +52,7 @@ rbenv global 3.3.0
 ```
 
 **Linux:**
+
 ```bash
 # Ubuntu/Debian
 sudo apt-get install ruby-full
@@ -115,6 +119,7 @@ PI = 3.14159
 ```
 
 **🐍 Python:**
+
 ```python
 name = "太郎"
 user_age = 25
@@ -146,6 +151,7 @@ TEXT
 ```
 
 **🐍 Python:**
+
 ```python
 str1 = 'Hello'            # シングル/ダブルの機能差はない
 name = "Ruby"
@@ -170,6 +176,7 @@ pp { a: 1, b: 2 }    # 整形出力（Pretty Print）
 ```
 
 **🐍 Python:**
+
 ```python
 print("改行あり")            # 末尾に改行
 print("改行なし", end="")    # 改行を付けない
@@ -200,6 +207,7 @@ pi = 3.14159
 ```
 
 **🐍 Python:**
+
 ```python
 1 + 2      # => 3
 10 / 3     # => 3.3333...（/ は常に float を返す）
@@ -260,6 +268,7 @@ arr.flatten      # ネスト解除
 ```
 
 **🐍 Python:**
+
 ```python
 arr = [1, 2, 3, 4, 5]
 arr = ["apple", "banana", "cherry"]
@@ -307,6 +316,7 @@ user.merge({ job: "Engineer" })  # マージ
 ```
 
 **🐍 Python:**
+
 ```python
 user = {"name": "太郎", "age": 25, "city": "東京"}
 
@@ -370,6 +380,7 @@ false
 ```
 
 **🐍 Python:**
+
 ```python
 None             # Ruby の nil 相当
 x is None        # nil? 相当（None の判定は is を使う）
@@ -432,6 +443,7 @@ end
 ```
 
 **🐍 Python:**
+
 ```python
 if score >= 80:
     print("優秀")
@@ -506,6 +518,7 @@ end
 ```
 
 **🐍 Python:**
+
 ```python
 for num in [1, 2, 3]:
     print(num)
@@ -579,6 +592,7 @@ end
 ```
 
 **🐍 Python:**
+
 ```python
 def greet(name):
     return f"Hello, {name}!"
@@ -714,6 +728,7 @@ User.count      # => 1
 ```
 
 **🐍 Python:**
+
 ```python
 class User:
     count = 0  # クラス変数
@@ -922,6 +937,7 @@ end
 ```
 
 **🐍 Python:**
+
 ```python
 try:
     result = 10 / 0
@@ -990,6 +1006,7 @@ end
 ```
 
 **🐍 Python:**
+
 ```python
 # 全体を読み込み
 with open("file.txt", encoding="utf-8") as f:
@@ -1078,6 +1095,7 @@ bundle init
 ```
 
 **Gemfile:**
+
 ```ruby
 source "https://rubygems.org"
 
@@ -1147,6 +1165,7 @@ users.sort_by(&:age)  # メソッド参照
 ```
 
 **🐍 Python:**
+
 ```python
 numbers = [1, 2, 3, 4, 5]
 
@@ -1186,6 +1205,7 @@ names = users.map(&:name)  # users.map { |u| u.name } と同じ
 ```
 
 **🐍 Python:**
+
 ```python
 # Python に &. はない。条件式や getattr で表現する
 user.name if user is not None else None
@@ -1259,6 +1279,7 @@ variable.methods     # 利用可能なメソッド一覧
 ```
 
 **🐍 Python:**
+
 ```python
 print(repr(variable))          # p / inspect 相当
 import pprint; pprint.pprint(complex_object)  # pp 相当

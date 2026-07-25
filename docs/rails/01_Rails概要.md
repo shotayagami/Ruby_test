@@ -5,6 +5,7 @@ Ruby on Rails は Ruby 製のフルスタック Web アプリケーションフ�
 ---
 
 ## 目次
+
 1. [Railsとは・設計思想](#1-railsとは設計思想)
 2. [MVCアーキテクチャとリクエストのライフサイクル](#2-mvcアーキテクチャとリクエストのライフサイクル)
 3. [前提環境とインストール](#3-前提環境とインストール)
@@ -54,7 +55,7 @@ Rails の生産性は、以下の設計哲学に支えられています。
 - **RESTful 設計**
   リソース（記事、ユーザーなど）を中心に、HTTP メソッド（GET / POST / PATCH / DELETE）と URL の組み合わせで操作を表現する。ルーティングやコントローラの構造がこの思想に沿って設計されている。
 
-```
+```text
 規約に従う例:
   モデル名   Article        （単数・キャメルケース）
   テーブル名 articles       （複数・スネークケース）※自動対応
@@ -95,56 +96,28 @@ Django も MVC 系ですが、独自に **MTV（Model-Template-View）** と呼�
 
 ### MVCの関係図
 
-```
-        ┌─────────────────────────────────────────────┐
-        │                 ブラウザ                     │
-        └───────────────┬──────────────▲──────────────┘
-                        │ リクエスト   │ レスポンス(HTML)
-                        ▼              │
-        ┌───────────────────────────────────────────┐
-        │              Router (routes.rb)            │
-        │        URL + HTTP メソッド → 振り分け      │
-        └───────────────┬───────────────────────────┘
-                        ▼
-        ┌───────────────────────────────────────────┐
-        │              Controller                    │
-        │        アクション（index, show ...）        │
-        └───────┬───────────────────────▲───────────┘
-                │ 問い合わせ            │ データ
-                ▼                       │
-        ┌───────────────┐       ┌──────┴────────────┐
-        │     Model     │◀─────▶│      View         │
-        │ (Active Record)│      │ (ERB テンプレート) │
-        └───────┬───────┘       └───────────────────┘
-                │ SQL
-                ▼
-        ┌───────────────┐
-        │   Database    │
-        └───────────────┘
+```mermaid
+flowchart TD
+    Browser["ブラウザ"] -->|"リクエスト"| Router["Router (routes.rb)<br>URL + HTTPメソッド → 振り分け"]
+    Router --> Controller["Controller<br>アクション（index, show ...）"]
+    Controller -->|"問い合わせ"| Model["Model (Active Record)"]
+    Model -->|"SQL"| Database["Database"]
+    Database -->|"データ"| Model
+    Model --> View["View (ERBテンプレート)"]
+    View -->|"レスポンス(HTML)"| Browser
 ```
 
 ### リクエストのライフサイクル
 
 1 回のリクエストがレスポンスになるまでの流れは次のとおりです。
 
-```
-① ブラウザ
-     │  GET /articles/1 を送信
-     ▼
-② Router（config/routes.rb）
-     │  URL とメソッドを解析し、articles#show に振り分け
-     ▼
-③ Controller（ArticlesController#show）
-     │  Middleware を通過後、アクションを実行
-     ▼
-④ Model / DB（Article.find(1)）
-     │  Active Record が SQL を発行してレコードを取得
-     ▼
-⑤ View（app/views/articles/show.html.erb）
-     │  取得したデータを埋め込み HTML を組み立て
-     ▼
-⑥ レスポンス
-        HTTP ステータスと HTML をブラウザへ返す
+```mermaid
+flowchart TD
+    A["① ブラウザ<br>GET /articles/1 を送信"] --> B["② Router (config/routes.rb)<br>URLとメソッドを解析し articles→show に振り分け"]
+    B --> C["③ Controller (ArticlesController の show)<br>Middleware通過後、アクションを実行"]
+    C --> D["④ Model / DB (Article.find(1))<br>Active Record が SQL を発行してレコード取得"]
+    D --> E["⑤ View (app/views/articles/show.html.erb)<br>取得データを埋め込み HTML を組み立て"]
+    E --> F["⑥ レスポンス<br>HTTPステータスと HTML をブラウザへ返す"]
 ```
 
 途中で Rack ミドルウェア（ログ、セッション、CSRF 対策など）を通過します。ミドルウェアの一覧は `bin/rails middleware` で確認できます。
@@ -271,61 +244,63 @@ Rails 7.2 以降は既定で `Dockerfile`、GitHub Actions 用の CI 設定、Ru
 
 `rails new` で生成される主なディレクトリとファイルは次のとおりです。
 
-```
-myapp/
-├── app/                  # アプリケーション本体（MVC の中心）
-│   ├── assets/           # CSS・画像などの静的アセット
-│   ├── channels/         # Action Cable（WebSocket）
-│   ├── controllers/      # コントローラ
-│   ├── helpers/          # ビュー用の補助メソッド
-│   ├── javascript/       # JavaScript（importmap のエントリ等）
-│   ├── jobs/             # Active Job のジョブ
-│   ├── mailers/          # Action Mailer のメーラー
-│   ├── models/           # モデル（Active Record）
-│   └── views/            # ビューテンプレート（.erb など）
-├── bin/                  # 実行スクリプト（rails, setup など）
-├── config/               # 設定ファイル群
-│   ├── environments/     # 環境ごとの設定（development/test/production）
-│   ├── initializers/     # 起動時に読み込む初期化コード
-│   ├── locales/          # 国際化（i18n）の翻訳ファイル
-│   ├── application.rb    # アプリ全体の設定
-│   ├── routes.rb         # ルーティング定義
-│   ├── database.yml      # DB 接続設定
-│   └── credentials.yml.enc # 暗号化された機密情報
-├── db/                   # DB 関連（マイグレーション・スキーマ・seed）
-│   ├── migrate/          # マイグレーションファイル
-│   ├── schema.rb         # 現在のスキーマ（自動生成）
-│   └── seeds.rb          # 初期データ投入スクリプト
-├── lib/                  # 自作ライブラリ・Rake タスク
-├── log/                  # ログファイル
-├── public/               # 公開ディレクトリ（そのまま配信される）
-├── storage/              # Active Storage のローカル保存先
-├── test/                 # テストコード（Minitest）
-├── tmp/                  # 一時ファイル・キャッシュ
-├── vendor/               # サードパーティのコード
-├── Gemfile               # 依存 gem の定義
-├── Gemfile.lock          # 依存 gem の確定版バージョン
-└── config.ru             # Rack の起動設定
+```mermaid
+flowchart TD
+    root["myapp/"]
+    root --> app["app/ — アプリ本体（MVCの中心）"]
+    app --> assets["assets/ — CSS・画像などの静的アセット"]
+    app --> channels["channels/ — Action Cable（WebSocket）"]
+    app --> controllers["controllers/ — コントローラ"]
+    app --> helpers["helpers/ — ビュー用の補助メソッド"]
+    app --> javascript["javascript/ — JS（importmap等）"]
+    app --> jobs["jobs/ — Active Job のジョブ"]
+    app --> mailers["mailers/ — Action Mailer のメーラー"]
+    app --> models["models/ — モデル（Active Record）"]
+    app --> views["views/ — ビューテンプレート（.erb 等）"]
+    root --> bin["bin/ — 実行スクリプト（rails, setup 等）"]
+    root --> config["config/ — 設定ファイル群"]
+    config --> environments["environments/ — 環境ごとの設定"]
+    config --> initializers["initializers/ — 起動時の初期化コード"]
+    config --> locales["locales/ — 国際化（i18n）翻訳"]
+    config --> applicationrb["application.rb — アプリ全体の設定"]
+    config --> routesrb["routes.rb — ルーティング定義"]
+    config --> databaseyml["database.yml — DB接続設定"]
+    config --> credentials["credentials.yml.enc — 暗号化された機密情報"]
+    root --> db["db/ — DB関連（マイグレーション・スキーマ・seed）"]
+    db --> migrate["migrate/ — マイグレーションファイル"]
+    db --> schemarb["schema.rb — 現在のスキーマ（自動生成）"]
+    db --> seedsrb["seeds.rb — 初期データ投入"]
+    root --> lib["lib/ — 自作ライブラリ・Rakeタスク"]
+    root --> log["log/ — ログファイル"]
+    root --> pub["public/ — 公開ディレクトリ"]
+    root --> storage["storage/ — Active Storage のローカル保存先"]
+    root --> test["test/ — テストコード（Minitest）"]
+    root --> tmp["tmp/ — 一時ファイル・キャッシュ"]
+    root --> vendor["vendor/ — サードパーティのコード"]
+    root --> gemfile["Gemfile — 依存gemの定義"]
+    root --> gemfilelock["Gemfile.lock — 依存gemの確定版"]
+    root --> configru["config.ru — Rack の起動設定"]
 ```
 
 **🎯 Django のディレクトリ構成:**
 
 Django は「プロジェクト」ディレクトリと「アプリ」ディレクトリに分かれ、MVC の各要素は**アプリ内のファイル**として配置されます。
 
-```
-myapp/                     # プロジェクトルート
-├── manage.py              # 各種コマンドの入口（bin/rails 相当）
-├── myapp/                 # プロジェクト設定パッケージ
-│   ├── settings.py        # 全体設定（config/ 相当を1ファイルに集約）
-│   ├── urls.py            # ルート URL 定義（config/routes.rb 相当）
-│   └── wsgi.py / asgi.py  # アプリケーションサーバの入口（config.ru 相当）
-└── blog/                  # 機能単位のアプリ
-    ├── models.py          # モデル（app/models/ 相当）
-    ├── views.py           # ビュー＝処理（app/controllers/ 相当）
-    ├── urls.py            # このアプリの URL 定義
-    ├── admin.py           # 管理画面へのモデル登録
-    ├── migrations/        # マイグレーション（db/migrate/ 相当）
-    └── templates/         # HTML テンプレート（app/views/ 相当）
+```mermaid
+flowchart TD
+    root["myapp/ — プロジェクトルート"]
+    root --> managepy["manage.py — 各種コマンドの入口（bin/rails 相当）"]
+    root --> pkg["myapp/ — プロジェクト設定パッケージ"]
+    pkg --> settings["settings.py — 全体設定（config/ 相当を1ファイルに集約）"]
+    pkg --> urls["urls.py — ルートURL定義（config/routes.rb 相当）"]
+    pkg --> wsgi["wsgi.py / asgi.py — アプリサーバの入口（config.ru 相当）"]
+    root --> blog["blog/ — 機能単位のアプリ"]
+    blog --> bmodels["models.py — モデル（app/models/ 相当）"]
+    blog --> bviews["views.py — ビュー＝処理（app/controllers/ 相当）"]
+    blog --> burls["urls.py — このアプリのURL定義"]
+    blog --> badmin["admin.py — 管理画面へのモデル登録"]
+    blog --> bmig["migrations/ — マイグレーション（db/migrate/ 相当）"]
+    blog --> btmpl["templates/ — HTMLテンプレート（app/views/ 相当）"]
 ```
 
 Rails が層（models/controllers/views）ごとにディレクトリを分けるのに対し、Django は機能（アプリ）ごとに `models.py` / `views.py` / `urls.py` などをまとめる点が対照的です。
@@ -357,7 +332,7 @@ Rails が層（models/controllers/views）ごとにディレクトリを分け�
 
 Rails は **zeitwerk** というオートローダーを採用しています。ファイル名とクラス名を規約どおりに対応させておけば、`require` を書かずにクラスを参照できます。
 
-```
+```text
 app/models/article.rb          → Article
 app/models/blog/comment.rb     → Blog::Comment
 app/controllers/articles_controller.rb → ArticlesController
@@ -516,11 +491,12 @@ Rails には 3 つの標準環境があり、それぞれ独立した設定・�
 
 環境ごとの設定は `config/environments/` 配下にあります。
 
-```
-config/environments/
-├── development.rb   # 開発環境の設定
-├── test.rb          # テスト環境の設定
-└── production.rb    # 本番環境の設定
+```mermaid
+flowchart TD
+    root["config/environments/"]
+    root --> dev["development.rb — 開発環境の設定"]
+    root --> testenv["test.rb — テスト環境の設定"]
+    root --> prod["production.rb — 本番環境の設定"]
 ```
 
 ```ruby
@@ -589,15 +565,9 @@ Rails.application.config.time_zone   # => "Tokyo"
 
 API キーやパスワードなどの秘密情報は、暗号化された **credentials** に保存します。平文をリポジトリにコミットせずに済む仕組みです。
 
-```
-┌──────────────────────────────┐
-│  config/master.key           │  ← 復号鍵（.gitignore 済み・共有しない）
-└──────────────┬───────────────┘
-               │ 復号 / 暗号化
-               ▼
-┌──────────────────────────────┐
-│  config/credentials.yml.enc  │  ← 暗号化された機密情報（コミット可）
-└──────────────────────────────┘
+```mermaid
+flowchart TD
+    key["config/master.key<br>復号鍵（.gitignore済み・共有しない）"] -->|"復号 / 暗号化"| enc["config/credentials.yml.enc<br>暗号化された機密情報（コミット可）"]
 ```
 
 ```bash
@@ -728,7 +698,7 @@ bin/rails server
 
 ブラウザで `http://localhost:3000/articles` にアクセスすると、記事の一覧・作成・編集・削除ができる CRUD 画面が動作します。
 
-```
+```text
 ┌──────────────────────────────────────────────┐
 │  http://localhost:3000/articles              │
 ├──────────────────────────────────────────────┤

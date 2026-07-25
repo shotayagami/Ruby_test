@@ -34,7 +34,7 @@ rspec --init
 
 ### .rspec ファイル
 
-```
+```text
 --require spec_helper
 --format documentation
 --color
@@ -197,7 +197,7 @@ def test_has_a_name(user):
 
 `subject`/`let` はどちらも fixture に相当します。fixture名を引数で受け取ると、遅延評価されたその値が渡されます。
 
-### let と let!
+### `let` と `let!`
 
 ```ruby
 RSpec.describe Order do

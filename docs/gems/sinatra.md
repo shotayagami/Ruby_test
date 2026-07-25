@@ -50,7 +50,7 @@ ruby app.rb
 # => http://localhost:4567 でアクセス可能
 ```
 
-**🐍 Python:** 開発サーバーは `flask run`（既定 http://localhost:5000）。本番は `gunicorn app:app` などのWSGIサーバーを使う（SinatraのPumaに相当）。
+**🐍 Python:** 開発サーバーは `flask run`（既定 <http://localhost:5000）。本番は> `gunicorn app:app` などのWSGIサーバーを使う（SinatraのPumaに相当）。
 
 ### モジュラースタイル（推奨）
 
@@ -1181,7 +1181,7 @@ end
 
 ### Procfile
 
-```
+```text
 web: bundle exec puma -C config/puma.rb
 ```
 
