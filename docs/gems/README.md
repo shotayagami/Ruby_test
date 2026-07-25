@@ -158,4 +158,27 @@ gem 'money'             # 通貨処理
 
 ---
 
+## Python相当ライブラリ早見表
+
+本ディレクトリで扱う各Gemに対応する、代表的なPythonライブラリの対応表です。
+
+| Gem | 用途 | Python相当 |
+|-----|------|-----------|
+| RSpec / Minitest | テストフレームワーク | pytest / unittest |
+| RuboCop | Linter/Formatter | Ruff（旧来の flake8 + black） |
+| Pry | 高機能REPL・デバッガ | IPython + pdb / ipdb |
+| Rake | タスクランナー | invoke / nox / Make |
+| Sinatra | 軽量Webフレームワーク | Flask |
+| Faraday | HTTPクライアント | requests / httpx |
+| Nokogiri | HTML/XMLパーサー | BeautifulSoup / lxml |
+| ActiveRecord | ORM | SQLAlchemy（Django ORM） |
+| Devise | 認証ソリューション | django.contrib.auth / django-allauth / Flask-Login |
+| OmniAuth Azure AD | Microsoft Entra ID連携 | MSAL for Python（msal）/ python-social-auth |
+| Sidekiq | 非同期ジョブ処理 | Celery / RQ |
+| Cloudflare R2 | S3互換オブジェクトストレージ | boto3（S3互換API） |
+
+対応はあくまで用途ベースの目安で、機能や設計思想は完全一致しません。特にRailsのActiveRecord/DeviseはフルスタックのRailsに密結合している一方、Python側は用途に応じてフレームワーク（Django / Flask）やライブラリを選択する点が異なります。
+
+---
+
 ← [第10章: Gem に戻る](../10_Gem.md)

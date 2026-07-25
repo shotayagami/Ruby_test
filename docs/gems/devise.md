@@ -4,6 +4,10 @@
 
 DeviseはRailsアプリケーション向けの柔軟な認証ソリューションです。ユーザー登録、ログイン、パスワードリセットなど、認証に必要な機能を包括的に提供します。
 
+> **🐍 Python相当:** Djangoは標準の django.contrib.auth＋django-allauth。FlaskならFlask-Login＋Flask-Security。
+
+**🐍 Python:** 位置づけの差が重要です。DeviseはRailsのデファクトだが「追加するgem」であるのに対し、**Djangoは認証（Userモデル・`authenticate`/`login`/`logout`・パスワードハッシュ・管理画面ログイン）をフレームワークに標準内蔵**しています。Flaskはマイクロフレームワークなので、セッション管理を担う **Flask-Login** に、登録・確認メール・ロール等をまとめた **Flask-Security-Too** や **Flask-Bcrypt** を組み合わせるのが一般的です。
+
 ```bash
 # インストール
 gem install devise
@@ -138,6 +142,21 @@ end
 | trackable | ログイン回数、日時、IPを記録 |
 | omniauthable | OmniAuth（SNS認証）連携 |
 
+**🐍 Python:** Deviseは「モジュールを`devise :...`で列挙して機能を足す」設計ですが、Django/Flaskでは相当機能が別々の場所（標準機能・追加パッケージ）に分散します。対応の目安は次の通りです。
+
+| Deviseモジュール | Django | Flask |
+|-----------------|--------|-------|
+| database_authenticatable | 標準の `authenticate()` とパスワードハッシュ（`set_password`/`check_password`） | Flask-Bcrypt / werkzeug の `generate_password_hash` |
+| registerable | フォーム自作、または django-allauth の登録フロー | Flask-Security-Too の登録ビュー |
+| recoverable | 標準の `PasswordResetView` ほかパスワードリセットビュー群 | Flask-Security-Too の recoverable |
+| rememberable | セッションの `set_expiry` / Cookie 設定 | Flask-Login の `remember=True` |
+| confirmable | django-allauth の `ACCOUNT_EMAIL_VERIFICATION` | Flask-Security-Too の confirmable |
+| lockable | django-axes 等の追加パッケージ | Flask-Security-Too の login 試行制限 |
+| trackable | `last_login` は標準記録、詳細は自作 | 自作 |
+| omniauthable | django-allauth のソーシャルアカウント | Flask-Dance / Authlib |
+
+django-allauth は、ソーシャルログイン・メール確認・登録フローをまとめて提供する事実上の標準パッケージです。
+
 ---
 
 ## 設定
@@ -208,6 +227,28 @@ user_signed_in?
 
 # 現在のセッション
 user_session
+```
+
+**🐍 Python:** `current_user` はDjangoでは `request.user`（未ログイン時は `AnonymousUser`）、Flask-Loginでは `flask_login.current_user` に相当します。`before_action :authenticate_user!` はDjangoの `@login_required` デコレータ、Flask-Loginの `@login_required` に対応します。`user_signed_in?` はDjangoなら `request.user.is_authenticated`、Flaskなら `current_user.is_authenticated` です。
+
+```python
+# Django（関数ビュー）
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def index(request):
+    user = request.user  # current_user 相当
+    ...
+```
+
+```python
+# Flask（Flask-Login）
+from flask_login import login_required, current_user
+
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    return f"Hello {current_user.email}"
 ```
 
 ### フィルターの例
@@ -417,6 +458,8 @@ rails generate devise:views -v sessions registrations
 
 ## OmniAuth 連携
 
+> **🐍 Python相当:** OmniAuth（Google/GitHub等のソーシャルログイン）は、Djangoでは **django-allauth** の `SocialAccount` プロバイダ設定、Flaskでは **Flask-Dance** や **Authlib** に相当します。allauthは `INSTALLED_APPS` に `allauth.socialaccount.providers.google` 等を追加し、管理画面かsettingsでクライアントID/シークレットを登録するだけで、コールバック処理まで内蔵されます（Deviseのように自前のコールバックコントローラーを書く必要は基本的にありません）。
+
 ### セットアップ
 
 ```ruby
@@ -530,6 +573,8 @@ devise_for :users, controllers: {
 
 ### JWT 認証（devise-jwt）
 
+**🐍 Python:** `devise-jwt` によるAPIトークン認証は、Djangoでは **djangorestframework-simplejwt**（`TokenObtainPairView` / `TokenRefreshView`）、Flaskでは **Flask-JWT-Extended**（`create_access_token` / `@jwt_required`）に相当します。いずれもトークンの発行・検証・有効期限を担い、Deviseの `dispatch_requests` / `revocation_requests` にあたる発行・失効の制御を提供します。
+
 ```ruby
 # Gemfile
 gem 'devise'
@@ -621,6 +666,8 @@ RSpec.configure do |config|
   config.include Devise::Test::IntegrationHelpers, type: :system
 end
 ```
+
+**🐍 Python:** テストでログイン状態を作る `sign_in user` は、Djangoのテストクライアントでは `self.client.force_login(user)`（またはパスワード検証を通す `self.client.login(...)`）、Flaskでは Flask-Login の `login_user()` をテストリクエスト内で呼ぶ形に相当します。
 
 ### コントローラーテスト
 

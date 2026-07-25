@@ -4,6 +4,8 @@
 
 RuboCopはRubyの静的コード解析ツールです。コーディングスタイルの一貫性を保ち、潜在的なバグを検出します。
 
+> **🐍 Python相当:** 近年の主流は **Ruff**（高速なLinter兼Formatter）。従来は **flake8**（Lint）＋ **black**（Formatter）＋ **isort**（import整列）の組み合わせ。型チェックは **mypy** が担う。
+
 ```bash
 # インストール
 gem install rubocop
@@ -49,6 +51,31 @@ rubocop --except Style/Documentation
 rubocop --init
 ```
 
+**🐍 Python:** Ruff ではチェックと自動修正を以下のように行う。
+
+```bash
+# 現在のディレクトリをチェック（rubocop に相当）
+ruff check .
+
+# 特定のファイル/ディレクトリ
+ruff check app/models/user.py
+
+# 自動修正（安全な修正のみ。rubocop -a に相当）
+ruff check --fix .
+
+# 危険な修正も含めて自動修正（rubocop -A に相当）
+ruff check --fix --unsafe-fixes .
+
+# フォーマット（black . に相当）
+ruff format .
+
+# 特定のルールのみ / 除外
+ruff check --select E501 .
+ruff check --ignore E501 .
+```
+
+従来ツールでは `flake8 .`（Lint）、`black .`（整形）、`isort .`（import整列）を個別に実行する。
+
 ### 出力フォーマット
 
 ```bash
@@ -93,6 +120,20 @@ require:
   - rubocop-performance
   - rubocop-rspec
   - rubocop-rails
+```
+
+**🐍 Python:** Ruff の設定は `pyproject.toml` の `[tool.ruff]` に書くのが一般的（`ruff.toml` も可）。flake8 系は `setup.cfg` や `.flake8` を使う。
+
+```toml
+# pyproject.toml
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+exclude = ["build", "dist", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]  # I は isort 相当のimport整列
+ignore = ["E501"]
 ```
 
 ### Copの設定
@@ -410,6 +451,8 @@ jobs:
 #!/bin/sh
 bundle exec rubocop --force-exclusion $(git diff --cached --name-only --diff-filter=ACM | grep '\.rb$')
 ```
+
+**🐍 Python:** CI やコミット前チェックの考え方は同じ。CIでは `ruff check .` を実行し、コミット前は [pre-commit](https://pre-commit.com/) フレームワークで `ruff`（公式フックあり）を登録する運用が一般的である。
 
 ### VSCode 連携
 

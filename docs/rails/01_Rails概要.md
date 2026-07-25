@@ -62,6 +62,13 @@ Rails の生産性は、以下の設計哲学に支えられています。
   ビュー     app/views/articles/
 ```
 
+**🎯 Django との比較（フレームワーク全体像）:**
+
+RailsもDjangoも、ORM・ルーティング・テンプレート・管理機能などを標準搭載した**フルスタック**フレームワークです。ただし設計思想が対照的です。
+
+- **Rails:「設定より規約」** — 規約に従えば設定はほぼ不要（`Article` → `articles` テーブルが自動対応）。
+- **Django:「明示的設定」** — 接続や機能の有効化を `settings.py` に**明示的に書く**ことを重視します。また 1 プロジェクトを機能単位の**アプリ（app）**に分割し、`INSTALLED_APPS` に登録して組み立てるのが基本スタイルです。
+
 ---
 
 ## 2. MVCアーキテクチャとリクエストのライフサイクル
@@ -73,6 +80,18 @@ Rails は **MVC（Model-View-Controller）** パターンを採用していま�
 | Model | データとビジネスロジック、DB とのやり取り | `app/models/` |
 | View | ユーザーに見せる画面（HTML など）の生成 | `app/views/` |
 | Controller | リクエストを受け、モデルとビューを仲介 | `app/controllers/` |
+
+**🎯 Django（MTV アーキテクチャ）との比較:**
+
+Django も MVC 系ですが、独自に **MTV（Model-Template-View）** と呼びます。用語が Rails とズレるため注意が必要です。
+
+| Django の呼称 | 実際の役割 | Rails での相当 |
+|--------------|-----------|---------------|
+| Model（`models.py`） | データと DB とのやり取り | Model |
+| Template（`.html`） | 画面（HTML）の生成 | **View** |
+| View（`views.py`） | リクエストを受け処理を仲介 | **Controller** |
+
+つまり Django の「View（`views.py`）」は Rails の**コントローラ**に相当し、Rails の「View（テンプレート）」は Django の**Template**に相当します。ルーティングは Rails が `config/routes.rb` に集約するのに対し、Django は各アプリの `urls.py` で `path()` を使って定義します。
 
 ### MVCの関係図
 
@@ -168,6 +187,25 @@ gem -v
 bundle -v
 ```
 
+**🎯 Django のインストール:**
+
+Django は pip で配布されるパッケージです。プロジェクトごとに**仮想環境（venv）**を作って隔離するのが一般的です。
+
+```bash
+# 仮想環境を作成して有効化
+python -m venv .venv
+source .venv/bin/activate     # Windows は .venv\Scripts\activate
+
+# Django をインストール（バージョン指定も可能）
+pip install django
+pip install "django==5.0"
+
+# バージョン確認
+django-admin --version
+```
+
+Rails の rbenv/asdf ＋ bundler が「Ruby 本体のバージョン管理」と「gem のプロジェクト隔離」を担うのに対し、Python では venv がプロジェクトごとの隔離を担います。
+
 > rbenv や asdf などのバージョン管理ツールを使っている場合、`gem install rails` の後に `rbenv rehash` が必要になることがあります。
 
 ---
@@ -186,6 +224,21 @@ rails new myapp --database=postgresql --api
 # CSS に Tailwind、テストファイルは生成しない
 rails new myapp --css=tailwind --skip-test
 ```
+
+**🎯 Django のプロジェクト/アプリ生成:**
+
+Django では**プロジェクト**の生成と、機能単位の**アプリ**の生成が 2 段階に分かれます。
+
+```bash
+# プロジェクト（設定・全体の入れ物）を生成
+django-admin startproject myapp
+cd myapp
+
+# 機能単位のアプリを生成（例: blog）
+python manage.py startapp blog
+```
+
+`rails new` が 1 コマンドで一式（`bundle install` 込み）を用意するのに対し、Django は「プロジェクト作成 → アプリ作成 → `settings.py` の `INSTALLED_APPS` に登録」という明示的な組み立てが前提です。`--api` のような専用構成オプションはなく、必要な機能を後から足していきます。
 
 ### 主要オプション一覧
 
@@ -255,6 +308,28 @@ myapp/
 └── config.ru             # Rack の起動設定
 ```
 
+**🎯 Django のディレクトリ構成:**
+
+Django は「プロジェクト」ディレクトリと「アプリ」ディレクトリに分かれ、MVC の各要素は**アプリ内のファイル**として配置されます。
+
+```
+myapp/                     # プロジェクトルート
+├── manage.py              # 各種コマンドの入口（bin/rails 相当）
+├── myapp/                 # プロジェクト設定パッケージ
+│   ├── settings.py        # 全体設定（config/ 相当を1ファイルに集約）
+│   ├── urls.py            # ルート URL 定義（config/routes.rb 相当）
+│   └── wsgi.py / asgi.py  # アプリケーションサーバの入口（config.ru 相当）
+└── blog/                  # 機能単位のアプリ
+    ├── models.py          # モデル（app/models/ 相当）
+    ├── views.py           # ビュー＝処理（app/controllers/ 相当）
+    ├── urls.py            # このアプリの URL 定義
+    ├── admin.py           # 管理画面へのモデル登録
+    ├── migrations/        # マイグレーション（db/migrate/ 相当）
+    └── templates/         # HTML テンプレート（app/views/ 相当）
+```
+
+Rails が層（models/controllers/views）ごとにディレクトリを分けるのに対し、Django は機能（アプリ）ごとに `models.py` / `views.py` / `urls.py` などをまとめる点が対照的です。
+
 ### app/ 配下の役割
 
 | ディレクトリ | 役割 |
@@ -311,6 +386,22 @@ Rails のコマンドは、グローバルの `rails` と、プロジェクト�
 | `bin/rails credentials:edit` | | 暗号化された機密情報を編集 |
 | `bin/rails about` | | Ruby / Rails のバージョンなど環境情報を表示 |
 
+**🎯 Django のコマンド（`python manage.py`）:**
+
+Django ではプロジェクト内のコマンドを `python manage.py <サブコマンド>` で実行します（`bin/rails` 相当）。
+
+| Rails | Django | 説明 |
+|-------|--------|------|
+| `bin/rails server` | `python manage.py runserver` | 開発サーバ起動 |
+| `bin/rails console` | `python manage.py shell` | 対話コンソール |
+| `bin/rails generate ...` | `python manage.py startapp <app>` | Django は雛形の自動生成が乏しく、多くは手動でファイルを作成 |
+| （マイグレーション生成） | `python manage.py makemigrations` | モデルの変更から migration を生成 |
+| `bin/rails db:migrate` | `python manage.py migrate` | マイグレーションを適用 |
+| `bin/rails routes` | 標準にはなし（`django-extensions` の `show_urls`） | URL 一覧表示 |
+| `bin/rails runner` | `python manage.py shell -c "..."` | アプリ環境下でコード実行 |
+
+Rails が migration の生成を `generate migration`、適用を `db:migrate` で行うのに対し、Django は `makemigrations`（生成）と `migrate`（適用）の 2 コマンドで対応します。
+
 ```bash
 # ジェネレータの例
 bin/rails generate model Article title:string body:text
@@ -362,6 +453,8 @@ bin/rails server -b 0.0.0.0
 bin/rails server -e production
 ```
 
+> **🎯 Django:** `python manage.py runserver`（`rails server` 相当。既定ポートは **8000**）。ポートやバインド先は `python manage.py runserver 0.0.0.0:8000` のように引数で指定します。
+
 | オプション | 短縮形 | 説明 |
 |-----------|-------|------|
 | `--port` | `-p` | 待ち受けポート（既定 3000） |
@@ -389,6 +482,8 @@ irb> article = Article.create(title: "初投稿", body: "本文です")
 irb> Article.first.title
 => "初投稿"
 ```
+
+> **🐍 Python:** Django の対話コンソールは `python manage.py shell`（`rails console` 相当）。素の Python シェルに Django 環境を読み込んだもので、`from blog.models import Article` のようにモデルを import して使います。`django-extensions` を入れると、モデルを自動 import する `shell_plus` も利用できます。なお、終了時に自動ロールバックする Rails の `--sandbox` に相当する標準機能はありません。
 
 #### サンドボックスモード
 
@@ -458,6 +553,10 @@ Rails.env             # => "development"
 Rails.env.production? # => false
 ```
 
+**🎯 Django の環境の扱い:**
+
+Django には Rails のような development/test/production の 3 環境が**あらかじめ用意されているわけではありません**。代わりに、どの設定モジュールを読み込むかを環境変数 `DJANGO_SETTINGS_MODULE`（例: `myapp.settings.production`）で切り替え、`settings.py` を `base.py` / `development.py` / `production.py` などに分割するのが定石です。開発時のエラー詳細表示などは `settings.py` の `DEBUG = True/False` で制御します。
+
 ---
 
 ## 9. 設定と機密情報の管理
@@ -483,6 +582,8 @@ end
 # 設定値をコード中で参照する
 Rails.application.config.time_zone   # => "Tokyo"
 ```
+
+**🎯 Django:** Django の設定は原則すべて `settings.py`（1 ファイル、または分割したモジュール群）に集約します。上記のタイムゾーンやロケールは、`settings.py` の `TIME_ZONE = "Asia/Tokyo"`、`LANGUAGE_CODE = "ja"`、`USE_TZ = True` などの変数で指定します。Rails が「規約＋環境別ファイル」で設定を分散させるのに対し、Django は「Python の変数として明示的に書く」点が対照的です。
 
 ### 機密情報（credentials）
 
@@ -524,6 +625,20 @@ Rails.application.credentials.secret_key_base
 - 環境ごとに分けたい場合は `bin/rails credentials:edit --environment production` を使うと、`config/credentials/production.yml.enc` と対応する鍵が作られます。
 
 DB のパスワードなど、鍵管理サービスと連携させたい値は環境変数（`ENV["..."]`）で渡す方法もよく使われます。用途に応じて credentials と環境変数を使い分けます。
+
+**🎯 Django の機密情報管理:**
+
+Django には credentials.yml.enc / master.key のような**暗号化ファイルの仕組みは標準にはありません**。プロジェクト生成時に `settings.py` へ自動生成される `SECRET_KEY`（Rails の `secret_key_base` 相当）をはじめ、API キーや DB パスワードは**環境変数**で渡し、`os.environ` や `django-environ`（`.env` ファイルを読み込む）経由で参照するのが定石です。
+
+```python
+# settings.py（django-environ を使う例）
+import environ
+env = environ.Env()
+SECRET_KEY = env("SECRET_KEY")
+DATABASES = {"default": env.db()}   # DATABASE_URL 環境変数から構築
+```
+
+`.env` や鍵ファイルをリポジトリにコミットしない点は、Rails の master.key と同じ考え方です。
 
 ---
 
@@ -574,6 +689,20 @@ bundle exec rake db:migrate
 - `bundle exec` は、システムにインストールされた別バージョンではなく、`Gemfile.lock` で固定されたバージョンで gem のコマンドを実行します。
 - `bin/rails` は内部で Bundler を経由するため、Rails のコマンドを打つときは通常 `bundle exec` を明示する必要はありません。
 
+**🎯 Django（Python）の依存管理:**
+
+Python では依存パッケージを `requirements.txt` に列挙し、pip でインストールするのが基本です（Rails の Gemfile/Bundler 相当）。
+
+```bash
+# 現在の環境の依存を書き出す（バージョン固定に使う）
+pip freeze > requirements.txt
+
+# requirements.txt からインストール
+pip install -r requirements.txt
+```
+
+`Gemfile.lock` による厳密なバージョン固定に対応させたい場合は、**Poetry** や **pipenv**（`poetry.lock` / `Pipfile.lock`）を使うことが多く、これらは依存解決とロックファイル生成を Bundler に近い形で行います。仮想環境（venv）による隔離が、Bundler のプロジェクト単位の管理に相当します。
+
 ---
 
 ## 11. 最小の動作確認（scaffold）
@@ -611,6 +740,27 @@ bin/rails server
 │  ・二つ目の記事   [Show] [Edit] [Destroy]    │
 └──────────────────────────────────────────────┘
 ```
+
+**🎯 Django に scaffold はある？ — 代わりに「管理画面（admin）」:**
+
+Django には Rails の scaffold のように CRUD 画面一式を生成するコマンドは**ありません**。その代わり、標準で**自動生成される管理画面（admin）**があり、モデルを登録するだけで CRUD 可能な UI がすぐに手に入ります。
+
+```python
+# blog/admin.py
+from django.contrib import admin
+from .models import Article
+
+admin.site.register(Article)   # これだけで /admin に CRUD 画面が現れる
+```
+
+```bash
+# マイグレーション適用と管理ユーザー作成 → /admin にアクセス
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
+```
+
+ただし admin は**運用・管理者向け**の画面である点に注意が必要です。エンドユーザー向けの画面は、Rails の scaffold が生成するような一般公開ページとして、別途 `views.py` とテンプレートで作り込みます。
 
 生成されたルーティングは `bin/rails routes -c articles` で確認できます。
 

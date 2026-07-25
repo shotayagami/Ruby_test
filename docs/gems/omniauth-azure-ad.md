@@ -4,6 +4,10 @@
 
 `omniauth-azure-activedirectory-v2`は、Microsoft Entra ID（旧Azure Active Directory）を使用したOAuth2認証を実現するOmniAuth戦略です。企業のシングルサインオン（SSO）やMicrosoftアカウントでのログインを実装できます。
 
+> **🐍 Python相当:** MSAL for Python（microsoft-authentication-library, msal）。汎用OAuthなら python-social-auth / Authlib、DjangoならallauthのMicrosoftプロバイダ。
+
+**🐍 Python:** OmniAuthはRackミドルウェアとして認可コードフロー全体を代行するのに対し、MSALはアプリケーションオブジェクト（`msal.ConfidentialClientApplication`）を通じてURL生成・トークン交換を明示的に呼び出すライブラリ。ミドルウェアではないため、リダイレクトやコールバックのルーティングはDjango/Flask側で自分で書く。
+
 ```bash
 # インストール
 gem install omniauth-azure-activedirectory-v2
@@ -61,6 +65,24 @@ end
 OmniAuth.config.allowed_request_methods = [:post, :get]
 ```
 
+**🐍 Python:** MSALでは同じ設定値（client_id / client_secret / tenant）を`ConfidentialClientApplication`のコンストラクタに渡し、認可URLを組み立てる。`tenant_id`はauthorityのURLとして表現される。
+
+```python
+import msal
+
+app = msal.ConfidentialClientApplication(
+    client_id="AZURE_CLIENT_ID",
+    client_credential="AZURE_CLIENT_SECRET",
+    authority="https://login.microsoftonline.com/AZURE_TENANT_ID",  # 'common'/'consumers'も可
+)
+
+# 認可コードフローの開始（OmniAuthの /auth/... 相当）
+auth_url = app.get_authorization_request_url(
+    scopes=["User.Read"],
+    redirect_uri="https://your-app.com/auth/callback",
+)
+```
+
 ### 環境変数
 
 ```bash
@@ -96,6 +118,8 @@ provider :azure_activedirectory_v2,
 ---
 
 ## Devise との連携
+
+> **🐍 Python相当:** MSALを直接使う代わりに、フレームワーク統合ライブラリでDevise + OmniAuthのような「ボタン一つでSSO」を実現できる。Djangoなら**django-allauth**（Microsoftプロバイダ）や**python-social-auth**（`social-auth-app-django`）、Flaskなら**Flask-Dance**。汎用OIDCクライアントとして**Authlib**も利用可能。
 
 ### 設定
 
@@ -328,6 +352,23 @@ def azure_activedirectory_v2
 end
 ```
 
+**🐍 Python:** MSALではコールバックで受け取った認可コードを`acquire_token_by_authorization_code`でトークンに交換する。`request.env["omniauth.auth"]`のinfo/extraに相当する情報は、応答の`id_token_claims`（`name` / `preferred_username` / `oid` / `tid` など）と`access_token`から取り出す。
+
+```python
+result = app.acquire_token_by_authorization_code(
+    code=request.GET["code"],          # コールバックの認可コード
+    scopes=["User.Read"],
+    redirect_uri="https://your-app.com/auth/callback",
+)
+
+claims = result["id_token_claims"]     # auth.extra.raw_info 相当
+name = claims["name"]
+email = claims.get("preferred_username")
+uid = claims["oid"]                    # auth.uid 相当
+tenant_id = claims["tid"]
+access_token = result["access_token"]  # auth.credentials.token 相当
+```
+
 ---
 
 ## Microsoft Graph API の利用
@@ -435,6 +476,15 @@ class MicrosoftGraphService
 end
 ```
 
+**🐍 Python:** MSALはトークン取得までを担当し、Graph API呼び出し自体は`requests`などのHTTPクライアントでBearerトークンを付与して行う（Faradayでの呼び出しに相当）。Microsoft Graph SDK for Python（`msgraph-sdk`）を使う選択肢もある。
+
+```python
+import requests
+
+headers = {"Authorization": f"Bearer {access_token}"}
+me = requests.get("https://graph.microsoft.com/v1.0/me", headers=headers).json()
+```
+
 ### 使用例
 
 ```ruby
@@ -496,6 +546,15 @@ class AzureTokenRefreshService
     TOKEN_URL % @user.tenant_id
   end
 end
+```
+
+**🐍 Python:** MSALはトークンキャッシュを内蔵しており、リフレッシュを手動でエンドポイントに投げる代わりに`acquire_token_silent`を呼ぶと、キャッシュされたリフレッシュトークンを使って自動的に更新する。
+
+```python
+accounts = app.get_accounts()
+result = app.acquire_token_silent(scopes=["User.Read"], account=accounts[0])
+# result が None または "access_token" を含まない場合は再認証が必要
+access_token = result["access_token"]
 ```
 
 ### 自動更新

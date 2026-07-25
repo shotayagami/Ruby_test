@@ -4,6 +4,8 @@
 
 SinatraはRubyの軽量Webフレームワークです。最小限の設定でWebアプリケーションやAPIを素早く構築できます。シンプルさが特徴で、学習コストが低く、小規模なプロジェクトやAPIサーバーに最適です。
 
+> **🐍 Python相当:** Flask（軽量Webフレームワーク。FastAPIも近い）
+
 ```bash
 # インストール
 gem install sinatra
@@ -29,11 +31,26 @@ get '/' do
 end
 ```
 
+**🐍 Python:** Flaskはルートをデコレータで宣言し、関数の戻り値がレスポンスになります（Sinatraのブロックの代わりに関数、末尾は `return`）。
+
+```python
+# app.py
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route("/")
+def index():
+    return "Hello, World!"
+```
+
 ```bash
 # 起動
 ruby app.rb
 # => http://localhost:4567 でアクセス可能
 ```
+
+**🐍 Python:** 開発サーバーは `flask run`（既定 http://localhost:5000）。本番は `gunicorn app:app` などのWSGIサーバーを使う（SinatraのPumaに相当）。
 
 ### モジュラースタイル（推奨）
 
@@ -49,6 +66,28 @@ class MyApp < Sinatra::Base
   # 開発時のみ直接実行
   run! if app_file == $0
 end
+```
+
+**🐍 Python:** Flaskではモジュール化にBlueprintを使い、`create_app()` のアプリケーションファクトリで組み立てるのが定番です。
+
+```python
+# users/routes.py
+from flask import Blueprint
+
+users_bp = Blueprint("users", __name__)
+
+@users_bp.route("/")
+def index():
+    return "Hello, World!"
+
+# app.py
+from flask import Flask
+from users.routes import users_bp
+
+def create_app():
+    app = Flask(__name__)
+    app.register_blueprint(users_bp)
+    return app
 ```
 
 ### config.ru を使用
@@ -107,6 +146,26 @@ class MyApp < Sinatra::Base
 end
 ```
 
+**🐍 Python:** Flaskは1つの `@app.route` に `methods=[...]` を渡してHTTPメソッドを指定します（Sinatraのように動詞ごとのメソッドはありませんが、`@app.get(...)` / `@app.post(...)` のショートカットもあります）。
+
+```python
+@app.route("/", methods=["GET"])
+def home():
+    return "Home page"
+
+@app.route("/users", methods=["POST"])
+def create_user():
+    return "Create user"
+
+@app.route("/users/<id>", methods=["PUT", "PATCH"])
+def update_user(id):
+    return "Update user"
+
+@app.route("/users/<id>", methods=["DELETE"])
+def delete_user(id):
+    return "Delete user"
+```
+
 ### パラメータ
 
 ```ruby
@@ -148,6 +207,27 @@ class MyApp < Sinatra::Base
 end
 ```
 
+**🐍 Python:** 動的セグメントは `/:id` ではなく `/<id>`（型変換は `/<int:id>`）で書き、関数の引数として受け取ります。クエリ文字列は `request.args.get("q")` で取得します（`params[:q]` に相当）。
+
+```python
+from flask import request
+
+# URLパラメータ（型変換あり）
+@app.route("/users/<int:id>")
+def show_user(id):
+    return f"User ID: {id}"
+
+# 複数のパラメータ
+@app.route("/users/<user_id>/posts/<post_id>")
+def user_post(user_id, post_id):
+    return f"User: {user_id}, Post: {post_id}"
+
+# クエリパラメータ  /search?q=ruby&page=1
+@app.route("/search")
+def search():
+    return f"Query: {request.args.get('q')}, Page: {request.args.get('page')}"
+```
+
 ### リクエストボディ
 
 ```ruby
@@ -165,6 +245,22 @@ class MyApp < Sinatra::Base
     "Created: #{name}"
   end
 end
+```
+
+**🐍 Python:** フォームデータは `request.form`、JSONボディは `request.get_json()` で受け取ります（Sinatraの `params[:name]` / 手動 `JSON.parse` に相当）。
+
+```python
+@app.route("/users", methods=["POST"])
+def create_user():
+    # フォームデータ
+    name = request.form.get("name")
+    email = request.form.get("email")
+
+    # JSONボディ
+    data = request.get_json()
+    name = data["name"]
+
+    return f"Created: {name}"
 ```
 
 ---
@@ -203,6 +299,22 @@ class MyApp < Sinatra::Base
     [201, { 'Content-Type' => 'text/plain' }, 'Created']
   end
 end
+```
+
+**🐍 Python:** Flaskはステータスや ヘッダーを戻り値のタプルで表します（`return body, 404` や `return body, status, headers`）。Sinatraの `status 404` に相当する明示的な呼び出しではなく、戻り値で指定するのが基本です。
+
+```python
+@app.route("/not_found")
+def not_found():
+    return "Not Found", 404
+
+@app.route("/custom")
+def custom():
+    return "Custom response", 200, {"X-Custom-Header": "value"}
+
+@app.route("/full")
+def full():
+    return "Created", 201, {"Content-Type": "text/plain"}
 ```
 
 ### JSON API
@@ -244,6 +356,27 @@ class ApiApp < Sinatra::Base
     { error: 'Internal Server Error' }.to_json
   end
 end
+```
+
+**🐍 Python:** Flaskは `jsonify()` で辞書やリストをJSONレスポンスに変換します（Content-Typeも自動設定。Sinatraの `content_type :json` + `.to_json` に相当）。エラーは `@app.errorhandler` で定義します。
+
+```python
+from flask import jsonify
+
+@app.route("/users")
+def users():
+    return jsonify([{"id": 1, "name": "Alice"}, {"id": 2, "name": "Bob"}])
+
+@app.route("/users", methods=["POST"])
+def create_user():
+    data = request.get_json()
+    if not data.get("name"):
+        return jsonify(error="Name is required"), 400
+    return jsonify(id=3, name=data["name"]), 201
+
+@app.errorhandler(404)
+def handle_404(e):
+    return jsonify(error="Not Found"), 404
 ```
 
 ### リダイレクト
@@ -302,6 +435,20 @@ class MyApp < Sinatra::Base
     erb :show
   end
 end
+```
+
+**🐍 Python:** FlaskはJinja2テンプレートを標準搭載し、`render_template("index.html", ...)` で `templates/` 配下のファイルを描画します（ERB/hamlに相当。インスタンス変数ではなくキーワード引数で値を渡す）。
+
+```python
+from flask import render_template
+
+@app.route("/")
+def index():
+    return render_template("index.html", title="Home", users=User.all())
+
+@app.route("/users/<id>")
+def show(id):
+    return render_template("show.html", user=User.find(id))
 ```
 
 ```erb

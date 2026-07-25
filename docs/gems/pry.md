@@ -4,6 +4,8 @@
 
 PryはIRBの代替となる高機能なREPL（対話型シェル）です。構文ハイライト、コード補完、ソースコード閲覧、デバッグ機能など、開発に便利な機能を多数備えています。
 
+> **🐍 Python相当:** REPL部分は **IPython**（高機能な対話型シェル）、デバッガ部分は **pdb / ipdb**（`pry-byebug`に相当）。
+
 ```bash
 # インストール
 gem install pry
@@ -70,6 +72,19 @@ end
 complex_calculation(5, 3)
 ```
 
+**🐍 Python:** 任意の場所での対話停止は複数の方法がある。
+
+```python
+def complex_calculation(x, y):
+    result = x * y
+    breakpoint()  # Python 3.7+ の組み込み。pdb が起動する
+    # import ipdb; ipdb.set_trace()  # ipdb を使う場合
+    # import IPython; IPython.embed()  # 対話シェルとして埋め込む場合
+    return result + 10
+```
+
+`binding.pry` はデバッグ操作と対話シェルを兼ねるが、Pythonでは `breakpoint()`（デバッグ操作）と `IPython.embed()`（対話シェル）で用途が分かれる点に注意。
+
 ---
 
 ## ナビゲーションコマンド
@@ -96,6 +111,8 @@ pry> ls -c User           # 定数のみ
 pry> ls -G pattern        # パターンでフィルタ
 pry> ls -v User           # 詳細表示
 ```
+
+**🐍 Python:** IPythonでは `dir(obj)` でメソッド/属性一覧、`vars(obj)` でインスタンス変数（`obj.__dict__`）を確認する。フィルタはタブ補完や `obj.<TAB>` で行う。
 
 ### cd - コンテキスト移動
 
@@ -136,6 +153,8 @@ pry> show-source User#save -l
 # 特定の行から
 pry> show-source User#save -b
 ```
+
+**🐍 Python:** IPythonでは `obj.method??`（ソース表示）、`obj.method?`（ドキュメント/シグネチャ表示）を使う。プログラム的には `import inspect; inspect.getsource(func)` でソースを取得できる。
 
 ### show-doc - ドキュメント表示
 
@@ -201,6 +220,17 @@ pry> frame         # 現在のフレーム情報
 
 pry> backtrace     # コールスタック表示
 pry> bt            # backtrace の短縮形
+```
+
+**🐍 Python:** pdb / ipdb のコマンドはほぼ同じ短縮形を持つ。
+
+```bash
+n   # next: ステップオーバー
+s   # step: ステップイン
+c   # continue: 続行
+r   # return: 現在の関数を抜ける（pry の finish に相当）
+u / d  # up / down: コールスタック移動
+w   # where: コールスタック表示（bt に相当）
 ```
 
 ### ブレークポイント

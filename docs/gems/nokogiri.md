@@ -4,6 +4,8 @@
 
 NokogiriはRubyで最も使われているHTML/XMLパーサーです。Webスクレイピング、XMLデータの処理、HTMLの生成など、幅広い用途で使用されます。
 
+> **🐍 Python相当:** `BeautifulSoup`（bs4・使いやすさ重視）／ `lxml`（C実装で高速、XPathフル対応）。Nokogiriはこのlxmlと同じくlibxml2ベースです。
+
 ```bash
 # インストール
 gem install nokogiri
@@ -36,6 +38,26 @@ doc = Nokogiri::HTML(URI.open('https://example.com'))
 fragment = Nokogiri::HTML.fragment('<p>Hello</p><p>World</p>')
 ```
 
+**🐍 Python:**
+
+```python
+# BeautifulSoup (bs4): 第2引数でパーサーを選ぶ
+from bs4 import BeautifulSoup
+html = "<html><body><h1>Hello</h1><p>World</p></body></html>"
+soup = BeautifulSoup(html, "html.parser")   # 標準ライブラリのパーサー
+soup = BeautifulSoup(html, "lxml")          # lxml があればより高速・寛容
+
+# ファイルから
+with open("page.html", encoding="utf-8") as f:
+    soup = BeautifulSoup(f, "html.parser")
+
+# lxml を直接使う場合 (Nokogiri に最も近い書き味)
+import lxml.html
+doc = lxml.html.fromstring(html)
+```
+
+`Nokogiri::HTML(html)`は`BeautifulSoup(html, "html.parser")`や`lxml.html.fromstring(html)`に相当します。bs4はパーサーを差し替え可能で、`"lxml"`を選ぶとNokogiriと同じlibxml2ベースになります。
+
 ### XML のパース
 
 ```ruby
@@ -49,6 +71,23 @@ doc = Nokogiri::XML(File.open('data.xml'))
 # 厳密なパース（エラー時に例外）
 doc = Nokogiri::XML(xml) { |config| config.strict }
 ```
+
+**🐍 Python:**
+
+```python
+from lxml import etree
+
+xml = '<root><item id="1">First</item><item id="2">Second</item></root>'
+
+# 文字列から (XMLは厳密パースがデフォルト、不正なら例外)
+root = etree.fromstring(xml.encode("utf-8"))
+
+# ファイルから
+tree = etree.parse("data.xml")
+root = tree.getroot()
+```
+
+Nokogiriの`Nokogiri::XML`は`lxml.etree`が最も近く、こちらも既定で厳密パース（不正なXMLで`XMLSyntaxError`）です。bs4でも`BeautifulSoup(xml, "xml")`でXMLを扱えますが、XPathを使うなら`lxml.etree`が適しています。
 
 ---
 
@@ -98,6 +137,25 @@ doc.css('li:nth-child(2)')       # n番目の子
 doc.css('li:not(.special)')      # 否定
 ```
 
+**🐍 Python:**
+
+```python
+# BeautifulSoup: select() が CSS セレクタで NodeSet 相当を返す
+soup.select("h1")                     # タグ名
+soup.select("#content")               # ID
+soup.select(".title")                 # クラス
+soup.select("ul li")                  # 子孫
+soup.select("ul > li")                # 直接の子
+soup.select('a[href^="https"]')       # 属性・前方一致
+soup.select("li:nth-child(2)")        # 擬似クラス
+soup.select_one("h1")                 # 最初の1件 (Nokogiri の at_css)
+
+# lxml でも CSS セレクタが使える (内部で XPath に変換)
+doc.cssselect("ul > li")
+```
+
+Nokogiriの`doc.css("a")`は`soup.select("a")`に相当し、単一取得の`at_css`は`select_one`にあたります。bs4は`find`/`find_all`という独自APIも持ちますが、CSSセレクタなら`select`が最も対応が明快です。
+
 ### XPath
 
 ```ruby
@@ -127,6 +185,23 @@ doc.xpath('//li[contains(text(), "Item")]')
 doc.xpath('//li[starts-with(text(), "Item")]')
 doc.xpath('count(//li)')         # カウント
 ```
+
+**🐍 Python:**
+
+```python
+# lxml が XPath 1.0 をフルサポート (bs4 単体は XPath 非対応)
+from lxml import html
+tree = html.fromstring(page_html)
+
+tree.xpath("//h1")                        # すべての h1 (要素のリスト)
+tree.xpath('//div[@id="content"]')        # ID 指定
+tree.xpath("//a/@href")                   # href 属性の値 (文字列のリスト)
+tree.xpath("//li/text()")                 # テキストノード
+tree.xpath('//li[contains(@class, "special")]')
+tree.xpath("count(//li)")                 # カウント (float を返す)
+```
+
+Nokogiriの`doc.xpath("//a")`は`lxml`の`tree.xpath("//a")`に相当します。XPathを使いたい場合はbs4単体では非対応のため`lxml`を選びます（`count()`などの関数は数値や文字列を、要素式は要素のリストを返す点はNokogiriと同じ挙動です）。
 
 ### 検索メソッド
 
@@ -176,6 +251,29 @@ node.name                        # タグ名
 node.path                        # XPathパス
 node.line                        # 行番号（パース時に保持）
 ```
+
+**🐍 Python:**
+
+```python
+# BeautifulSoup
+el = soup.select_one("a")
+el.get_text()          # テキスト内容 (Nokogiri の node.text)
+el.get_text(strip=True)  # 前後空白を除去
+str(el)                # 外側 HTML (node.to_html)
+el.decode_contents()   # 内部 HTML (node.inner_html)
+el["href"]             # 属性値 (存在しないと KeyError)
+el.get("href")         # 属性値 (無ければ None)
+el.attrs               # すべての属性 (dict)
+el.name                # タグ名
+
+# lxml
+el = tree.xpath("//a")[0]
+el.text_content()      # テキスト内容
+el.get("href")         # 属性値
+el.tag                 # タグ名
+```
+
+Nokogiriの`node.text`はbs4の`el.get_text()`、`node["href"]`は`el["href"]`（安全に取るなら`el.get("href")`）に相当します。lxmlでは`el.text_content()`と`el.get("href")`を使います。
 
 ### NodeSet の操作
 

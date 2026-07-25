@@ -80,6 +80,8 @@ ruby -e 'puts "Hello"'
 puts "Hello, World!"
 ```
 
+> **🐍 Python:** `print("Hello, World!")`（`puts` 相当。`print()` は末尾に改行を付ける）
+
 ### コメント
 
 ```ruby
@@ -112,6 +114,18 @@ MAX_SIZE = 100
 PI = 3.14159
 ```
 
+**🐍 Python:**
+```python
+name = "太郎"
+user_age = 25
+
+# 定数は「大文字」の命名慣習のみ（言語による強制はない）
+MAX_SIZE = 100
+PI = 3.14159
+```
+
+Pythonには `@`（インスタンス変数）・`@@`（クラス変数）・`$`（グローバル）のような接頭辞はない。インスタンス変数はクラス内で `self.name` と書く。
+
 ### 文字列
 
 ```ruby
@@ -131,6 +145,21 @@ text = <<~TEXT
 TEXT
 ```
 
+**🐍 Python:**
+```python
+str1 = 'Hello'            # シングル/ダブルの機能差はない
+name = "Ruby"
+str2 = f"Hello, {name}!"  # f-string で式展開 => "Hello, Ruby!"
+str3 = "改行\nタブ\t"
+
+# 複数行文字列（トリプルクォート）
+text = """複数行の
+テキストを
+書ける"""
+```
+
+Pythonはシングル/ダブルクォートが等価で、式展開は `"#{name}"` ではなく f-string `f"{name}"` を使う。
+
 ### 出力
 
 ```ruby
@@ -138,6 +167,14 @@ puts "改行あり"      # 末尾に改行を追加
 print "改行なし"     # 改行なし
 p [1, 2, 3]          # デバッグ用（inspect形式）
 pp { a: 1, b: 2 }    # 整形出力（Pretty Print）
+```
+
+**🐍 Python:**
+```python
+print("改行あり")            # 末尾に改行
+print("改行なし", end="")    # 改行を付けない
+print([1, 2, 3])            # リストをそのまま表示
+import pprint; pprint.pprint({"a": 1, "b": 2})  # 整形出力
 ```
 
 ---
@@ -161,6 +198,17 @@ pi = 3.14159
 10 % 3     # => 1（剰余）
 2 ** 10    # => 1024（累乗）
 ```
+
+**🐍 Python:**
+```python
+1 + 2      # => 3
+10 / 3     # => 3.3333...（/ は常に float を返す）
+10 // 3    # => 3（整数除算は //）
+10 % 3     # => 1
+2 ** 10    # => 1024
+```
+
+重要な差: Rubyの `10 / 3` は整数同士なので `3` だが、Pythonの `/` は常に浮動小数点 `3.333...` を返す。整数の商が欲しい場合は `//` を使う。
 
 ### 文字列（String）
 
@@ -211,6 +259,28 @@ arr.compact      # nil除去
 arr.flatten      # ネスト解除
 ```
 
+**🐍 Python:**
+```python
+arr = [1, 2, 3, 4, 5]
+arr = ["apple", "banana", "cherry"]
+
+arr[0]       # 最初の要素
+arr[-1]      # 最後の要素
+arr[1:4]     # スライス（インデックス1〜3、終端は含まない）
+
+arr.append(6)     # push / << 相当
+arr.pop()         # 末尾から削除
+arr.pop(0)        # 先頭から削除（shift 相当）
+arr.insert(0, 0)  # 先頭に追加（unshift 相当）
+
+len(arr)                  # 要素数（arr.length 相当）
+sorted(arr)              # ソート（元を変えない）
+list(dict.fromkeys(arr))  # 重複削除（順序保持, uniq 相当）
+list(reversed(arr))      # 逆順
+```
+
+Rubyの配列はPythonでは list。`arr.length` は `len(arr)`、範囲アクセスはスライス `arr[1:4]`（終端を含まない点に注意）。
+
 ### ハッシュ（Hash）- 他言語のMap/Dictionary
 
 ```ruby
@@ -235,6 +305,25 @@ user.values          # => ["太郎", 25, "東京"]
 user.key?(:name)     # => true
 user.merge({ job: "Engineer" })  # マージ
 ```
+
+**🐍 Python:**
+```python
+user = {"name": "太郎", "age": 25, "city": "東京"}
+
+user["name"]                       # => "太郎"
+user.get("email")                  # => None（キーが無くても例外にならない）
+user.get("email", "default@example.com")  # デフォルト値付き
+
+user["email"] = "taro@example.com"  # 追加/更新
+del user["city"]                    # 削除
+
+list(user.keys())                  # => ["name", "age", "city"]
+list(user.values())                # => ["太郎", 25, "東京"]
+"name" in user                     # key? 相当 => True
+{**user, "job": "Engineer"}        # merge 相当
+```
+
+Rubyのハッシュはdictに相当。Pythonにはシンボルがないのでキーは文字列が一般的。注意点として `user[:email]` は nil を返すが、Pythonの `user["email"]` は KeyError になるため、存在しないキーは `.get()` を使う。
 
 ### シンボル（Symbol）
 
@@ -279,6 +368,19 @@ false
 # Rubyでの偽: false と nil のみ
 # それ以外はすべて真（0や""も真）
 ```
+
+**🐍 Python:**
+```python
+None             # Ruby の nil 相当
+x is None        # nil? 相当（None の判定は is を使う）
+
+True
+False
+
+# Python で偽と評価されるもの: False, None, 0, "", [], {}, () など
+```
+
+重要な差: Rubyで偽は `false` と `nil` のみで `0` や `""` は真。一方Pythonでは `0`・空文字列・空リスト・空辞書なども偽と評価される。
 
 ---
 
@@ -328,6 +430,30 @@ in { name:, age: }
   puts "未成年: #{name}"
 end
 ```
+
+**🐍 Python:**
+```python
+if score >= 80:
+    print("優秀")
+elif score >= 60:
+    print("合格")
+else:
+    print("不合格")
+
+# 三項演算子（値 if 条件 else 値）
+status = "成人" if age >= 18 else "未成年"
+
+# match 文（case/when 相当, Python 3.10+）
+match grade:
+    case "A":
+        print("素晴らしい")
+    case "B" | "C":
+        print("良い")
+    case _:
+        print("不明")
+```
+
+Pythonに後置 `if`/`unless` はなく、条件は必ず前置。Rubyの `case/in`（パターンマッチ）は `match/case`（3.10+）に相当する。
 
 ### ループ
 
@@ -379,6 +505,32 @@ loop do
 end
 ```
 
+**🐍 Python:**
+```python
+for num in [1, 2, 3]:
+    print(num)
+
+# each_with_index 相当は enumerate
+for index, item in enumerate(["a", "b", "c"]):
+    print(f"{index}: {item}")
+
+# 5.times 相当は range
+for i in range(5):
+    print(i)  # 0, 1, 2, 3, 4
+
+# while
+i = 0
+while i < 5:
+    print(i)
+    i += 1
+
+# 無限ループ
+while True:
+    break
+```
+
+Pythonのループは基本 `for x in ...`。`each` はそのまま `for`、`5.times` は `range(5)`、`each_with_index` は `enumerate()` に対応する。`until`・`upto`/`downto` に対応する構文はなく `range` などで表現する。
+
 ### ループ制御
 
 ```ruby
@@ -425,6 +577,23 @@ def check(n)
   "positive"
 end
 ```
+
+**🐍 Python:**
+```python
+def greet(name):
+    return f"Hello, {name}!"
+
+greet("Ruby")   # 呼び出しの括弧は省略できない
+
+def check(n):
+    if n < 0:
+        return "negative"
+    if n == 0:
+        return "zero"
+    return "positive"
+```
+
+`def ... end` は `def ...:` とインデントで表す。Rubyは最後の式が暗黙の戻り値になるが、Pythonは `return` が必須で、省略すると `None` を返す。呼び出しの括弧も省略できない。
 
 ### 引数
 
@@ -543,6 +712,32 @@ user.name       # => "太郎"
 user.name = "次郎"
 User.count      # => 1
 ```
+
+**🐍 Python:**
+```python
+class User:
+    count = 0  # クラス変数
+
+    def __init__(self, name, age):  # initialize 相当のコンストラクタ
+        self.name = name            # インスタンス変数は self. で表す
+        self.age = age
+        User.count += 1
+
+    def greet(self):                # 第1引数に self が必要
+        return f"こんにちは、{self.name}です"
+
+    @classmethod
+    def get_count(cls):             # self.count（クラスメソッド）相当
+        return cls.count
+
+user = User("太郎", 25)     # .new ではなくクラス名を直接呼ぶ
+user.greet()
+user.name           # 属性に直接アクセス（getter/setter は通常不要）
+user.name = "次郎"
+User.count
+```
+
+`initialize` は `__init__`、`@name` は `self.name`。インスタンスメソッドは第1引数に `self` を明示する。Pythonの属性は既定で公開なので `attr_accessor` に相当するものは通常不要（必要なら `@property` を使う）。
 
 ### アクセサ（ゲッター/セッター自動生成）
 
@@ -726,6 +921,22 @@ ensure
 end
 ```
 
+**🐍 Python:**
+```python
+try:
+    result = 10 / 0
+except ZeroDivisionError as e:
+    print(f"エラー: {e}")
+except Exception as e:
+    print(f"その他のエラー: {e}")
+else:
+    print(f"成功: {result}")
+finally:
+    print("必ず実行される")
+```
+
+`begin/rescue/else/ensure` は `try/except/else/finally` に対応する。例外送出は `raise ArgumentError("...")`、`StandardError` の位置には基底例外の `Exception` を使う。
+
 ### 例外を発生させる
 
 ```ruby
@@ -777,6 +988,28 @@ File.open("file.txt", "r") do |file|
   file.each_line { |line| puts line }
 end
 ```
+
+**🐍 Python:**
+```python
+# 全体を読み込み
+with open("file.txt", encoding="utf-8") as f:
+    content = f.read()
+
+# 行ごとに読み込み（with で自動 close）
+with open("file.txt", encoding="utf-8") as f:
+    for line in f:
+        print(line, end="")
+
+# 配列として読み込み
+with open("file.txt", encoding="utf-8") as f:
+    lines = f.readlines()
+
+# pathlib を使う手もある
+from pathlib import Path
+content = Path("file.txt").read_text(encoding="utf-8")
+```
+
+Rubyの `File.open(...) do |file| ... end` は `with open(...) as f:`（ブロックを抜けると自動でクローズ）に相当。単純な読み書きは `pathlib.Path` が現代的で簡潔。
 
 ### 書き込み
 
@@ -913,6 +1146,28 @@ users.sort_by { |u| u[:age] }
 users.sort_by(&:age)  # メソッド参照
 ```
 
+**🐍 Python:**
+```python
+numbers = [1, 2, 3, 4, 5]
+
+[n * 2 for n in numbers]              # map 相当（リスト内包表記）
+[n for n in numbers if n % 2 == 0]    # select 相当
+[n for n in numbers if n % 2 != 0]    # reject 相当
+next(n for n in numbers if n > 3)     # find 相当
+
+from functools import reduce
+reduce(lambda acc, n: acc + n, numbers, 0)  # reduce 相当
+sum(numbers)                          # => 15（よりシンプル）
+
+any(n > 3 for n in numbers)           # any? 相当
+all(n > 0 for n in numbers)           # all? 相当
+
+# ソート
+sorted(users, key=lambda u: u["age"])
+```
+
+Rubyの `map`/`select`/`reject` はPythonではリスト内包表記が慣用的。`&:age` のようなメソッド参照は `lambda u: u["age"]` か `operator.attrgetter` で書く。
+
 ### 安全なナビゲーション
 
 ```ruby
@@ -929,6 +1184,23 @@ name = params[:name] || "Guest"
 # &: : メソッドをブロックに変換
 names = users.map(&:name)  # users.map { |u| u.name } と同じ
 ```
+
+**🐍 Python:**
+```python
+# Python に &. はない。条件式や getattr で表現する
+user.name if user is not None else None
+
+# || デフォルト値
+name = params.get("name") or "Guest"
+
+# ||= 相当
+users = users or User.all()
+
+# map(&:name) 相当
+names = [u.name for u in users]
+```
+
+Rubyの `&.`（ぼっち演算子）に相当する演算子はPythonにはない。`x.attr if x is not None else None` や `getattr(x, "attr", None)` で代替する。`||`/`||=` はおおむね `or` に対応する。
 
 ### 文字列操作
 
@@ -985,6 +1257,18 @@ variable.class       # => String, Array など
 variable.is_a?(String)  # => true/false
 variable.methods     # 利用可能なメソッド一覧
 ```
+
+**🐍 Python:**
+```python
+print(repr(variable))          # p / inspect 相当
+import pprint; pprint.pprint(complex_object)  # pp 相当
+
+type(variable)                 # class 相当 → <class 'str'> など
+isinstance(variable, str)      # is_a? 相当 → True/False
+dir(variable)                  # methods 相当（属性/メソッド一覧）
+```
+
+Rubyの `p x` は `print(repr(x))` に近い。対話デバッグの `binding.irb` / `debugger` は、Python標準の `breakpoint()`（Python 3.7+、既定で pdb を起動）に相当する。
 
 ### binding.irb（Ruby 2.5+）
 

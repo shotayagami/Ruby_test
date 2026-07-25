@@ -12,6 +12,13 @@ gem install rake  # 必要な場合
 gem 'rake'
 ```
 
+> **🐍 Python相当:** タスクランナーは **invoke**（`tasks.py` に `@task` を定義）が最も近い。環境ごとにタスクを回すなら **nox** / **tox**、伝統的な **Makefile** も選択肢。なお `rake` にあるパッケージビルド機能は Python では別途 build / hatch などで担う。
+
+**🐍 Python:**
+```bash
+pip install invoke  # または nox / tox
+```
+
 ---
 
 ## 基本的な使い方
@@ -30,6 +37,21 @@ end
 # Hello, Rake!
 ```
 
+> **🐍 Python相当:** `Rakefile` にタスクを書く ↔ invoke では `tasks.py` に関数を定義しデコレータを付ける。`rake hello` ↔ `invoke hello`。
+
+**🐍 Python:**
+```python
+# tasks.py
+from invoke import task
+
+@task
+def hello(c):
+    """挨拶を表示する"""
+    print("Hello, Invoke!")
+
+# $ invoke hello
+```
+
 ### タスクの一覧
 
 ```bash
@@ -42,6 +64,14 @@ rake -T -A
 
 # 特定のパターン
 rake -T test
+```
+
+> **🐍 Python相当:** `rake -T`（説明付き一覧）↔ `invoke --list`（または `invoke -l`）。docstring がそのまま説明として表示される。
+
+**🐍 Python:**
+```bash
+invoke --list   # タスク一覧
+invoke -l
 ```
 
 ---
@@ -115,6 +145,25 @@ task :release => [:test, :build, :deploy]
 # 実行順序: clean -> build -> test -> deploy -> release
 ```
 
+> **🐍 Python相当:** 依存タスク（prerequisites）↔ invoke の `@task(pre=[...])`。事前に実行するタスクを列挙する。`post=[...]` で後処理も指定できる。
+
+**🐍 Python:**
+```python
+from invoke import task
+
+@task
+def clean(c):
+    print("Cleaning...")
+
+@task(pre=[clean])
+def build(c):
+    print("Building...")
+
+@task(pre=[build, test])   # 複数の依存
+def deploy(c):
+    print("Deploying...")
+```
+
 ### 名前空間
 
 ```ruby
@@ -160,6 +209,32 @@ namespace :db do
 end
 
 # $ rake db:schema:dump
+```
+
+> **🐍 Python相当:** 名前空間（`namespace :db`）↔ invoke の **Collection**。タスクを `Collection` にまとめると `invoke db.migrate` のようにドット区切りで呼び出せる。
+
+**🐍 Python:**
+```python
+# tasks.py
+from invoke import task, Collection
+
+@task
+def create(c):
+    print("Creating database...")
+
+@task
+def migrate(c):
+    print("Running migrations...")
+
+db = Collection("db")
+db.add_task(create)
+db.add_task(migrate)
+
+ns = Collection()
+ns.add_collection(db)
+
+# $ invoke db.create
+# $ invoke db.migrate
 ```
 
 ---

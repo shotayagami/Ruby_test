@@ -4,6 +4,8 @@
 
 RSpecはRubyで最も広く使われているテストフレームワークです。BDD（振る舞い駆動開発）スタイルで、人間が読みやすいテストコードを書くことができます。
 
+> **🐍 Python相当:** pytest（BDD風の記述・強力なfixture）
+
 ```bash
 # インストール
 gem install rspec
@@ -104,6 +106,25 @@ RSpec.describe Calculator do
 end
 ```
 
+**🐍 Python:**
+
+```python
+# test_calculator.py
+import pytest
+
+class TestCalculator:
+    def test_2つの数を足し算する(self):
+        calculator = Calculator()
+        assert calculator.add(2, 3) == 5
+
+    def test_ゼロで割ると例外を発生させる(self):
+        calculator = Calculator()
+        with pytest.raises(ZeroDivisionError):
+            calculator.divide(10, 0)
+```
+
+pytestでは `describe`/`it` の代わりに `class TestX:` とプレーンな `def test_...` 関数を使い、マッチャーの代わりに素の `assert` 文で検証します。
+
 ### context でグループ化
 
 ```ruby
@@ -126,6 +147,23 @@ RSpec.describe User do
 end
 ```
 
+**🐍 Python:**
+
+```python
+class TestUserAdult:
+    class TestWhen18OrOver:
+        def test_trueを返す(self):
+            user = User(age=20)
+            assert user.adult() is True
+
+    class TestWhenUnder18:
+        def test_falseを返す(self):
+            user = User(age=15)
+            assert user.adult() is False
+```
+
+pytestに `context` はありませんが、ネストしたクラスでグループ化できます（`pytest-describe` を使えば `describe`/`context` 風の記述も可能）。
+
 ### subject
 
 ```ruby
@@ -144,6 +182,21 @@ RSpec.describe User do
 end
 ```
 
+**🐍 Python:**
+
+```python
+import pytest
+
+@pytest.fixture
+def user():
+    return User(name='Bob', age=30)
+
+def test_has_a_name(user):
+    assert user.name == 'Bob'
+```
+
+`subject`/`let` はどちらも fixture に相当します。fixture名を引数で受け取ると、遅延評価されたその値が渡されます。
+
 ### let と let!
 
 ```ruby
@@ -161,6 +214,20 @@ RSpec.describe Order do
   end
 end
 ```
+
+**🐍 Python:**
+
+```python
+@pytest.fixture
+def user():           # let 相当（遅延評価）
+    return User.create(name='Alice')
+
+@pytest.fixture(autouse=True)
+def admin():          # let! 相当（各テスト前に必ず実行）
+    return User.create(name='Admin', role='admin')
+```
+
+遅延評価の `let` は普通の fixture、即時評価の `let!` は `autouse=True` の fixture が近い挙動になります。
 
 ### before / after
 
@@ -190,6 +257,27 @@ RSpec.describe Database do
 end
 ```
 
+**🐍 Python:**
+
+```python
+class TestDatabase:
+    @classmethod
+    def setup_class(cls):      # before(:all) 相当
+        DatabaseCleaner.clean()
+
+    def setup_method(self):    # before(:each) 相当
+        self.connection = Database.connect()
+
+    def teardown_method(self): # after(:each) 相当
+        self.connection.close()
+
+    @classmethod
+    def teardown_class(cls):   # after(:all) 相当
+        Database.disconnect_all()
+```
+
+`before`/`after` フックは `setup_method`/`teardown_method`（各テスト）や `setup_class`/`teardown_class`（クラス全体）に対応します。fixtureの `yield` で前後処理をまとめる書き方も一般的です。
+
 ---
 
 ## マッチャー
@@ -202,6 +290,15 @@ expect(actual).to eql(expected)     # eql?
 expect(actual).to equal(expected)   # equal?（同一オブジェクト）
 expect(actual).to be(expected)      # equal?（同上）
 ```
+
+**🐍 Python:**
+
+```python
+assert actual == expected     # eq 相当
+assert actual is expected     # equal / be 相当（同一オブジェクト）
+```
+
+pytestは専用マッチャーを持たず、素の `assert` と比較演算子で表現します（`==` が eq、`is` が equal/be に対応）。
 
 ### 比較
 
@@ -222,6 +319,16 @@ expect(false).to be false
 expect(nil).to be_nil
 expect(nil).to be_falsey
 expect(1).to be_truthy
+```
+
+**🐍 Python:**
+
+```python
+assert value is True      # be true
+assert value is False     # be false
+assert value is None      # be_nil
+assert not value          # be_falsey
+assert value              # be_truthy
 ```
 
 ### 型チェック
@@ -263,6 +370,18 @@ expect([2, 4, 6]).to all(be_even)
 expect(['a', 'b', 'c']).to all(be_a(String))
 ```
 
+**🐍 Python:**
+
+```python
+assert 2 in [1, 2, 3]                      # include
+assert 'a' in {'a': 1, 'b': 2}             # include（キー）
+assert [] == []                             # be_empty は len で: assert len(x) == 0
+assert sorted([1, 2, 3]) == sorted([3, 1, 2])  # match_array 相当
+assert all(n % 2 == 0 for n in [2, 4, 6])  # all 相当
+```
+
+`include` は `in` 演算子、順序無視の比較は `sorted()` 同士の比較、`all` は組み込みの `all()` で表現します。
+
 ### 文字列
 
 ```ruby
@@ -285,6 +404,19 @@ expect { raise ArgumentError, 'bad' }.to raise_error(ArgumentError, /bad/)
 # 例外が発生しない
 expect { safe_operation }.not_to raise_error
 ```
+
+**🐍 Python:**
+
+```python
+with pytest.raises(ValueError):
+    do_something()
+
+# メッセージのマッチ
+with pytest.raises(ValueError, match='bad'):
+    do_something()
+```
+
+`raise_error` は `pytest.raises` コンテキストマネージャで表現し、`match=` に正規表現を渡してメッセージを検証できます。「例外が発生しない」ことの専用構文はなく、通常はそのままコードを実行して例外が出なければ合格とします。
 
 ### 変化
 
@@ -346,6 +478,22 @@ RSpec.describe PaymentProcessor do
 end
 ```
 
+**🐍 Python:**
+
+```python
+from unittest.mock import create_autospec
+
+def test_processes_payment():
+    gateway = create_autospec(PaymentGateway)
+    gateway.charge.return_value = True          # 戻り値を設定
+    gateway.status.side_effect = ['pending', 'complete']  # 複数回の戻り値
+
+    processor = PaymentProcessor(gateway)
+    assert processor.process(100) is True
+```
+
+`allow(...).to receive(...).and_return(...)` は `mock.method.return_value = ...`、連続した戻り値は `side_effect` にリストを渡します（`pytest-mock` の `mocker` fixture も同様に使えます）。
+
 ### モック（呼び出しの検証）
 
 ```ruby
@@ -372,6 +520,24 @@ RSpec.describe OrderService do
   end
 end
 ```
+
+**🐍 Python:**
+
+```python
+def test_sends_confirmation_email(mocker):
+    mailer = mocker.create_autospec(OrderMailer)
+    service = OrderService(mailer=mailer)
+    service.complete(order)
+    mailer.send_confirmation.assert_called_once_with(order)
+
+def test_call_counts(mocker):
+    logger = mocker.create_autospec(Logger)
+    # ... テスト対象の処理 ...
+    assert logger.info.call_count == 3
+    logger.error.assert_called_once()
+```
+
+呼び出しの検証は、RSpecのように事前に `expect(...).to receive` するのではなく、実行後に `assert_called_once_with` / `call_count` などで確認するのがPython流です（`unittest.mock` または `pytest-mock` の `mocker` fixture）。
 
 ### 部分的なダブル
 
@@ -443,6 +609,18 @@ end
 it_behaves_like 'paginated response', 20
 ```
 
+**🐍 Python:**
+
+```python
+import pytest
+
+@pytest.mark.parametrize('per_page', [10, 20, 50])
+def test_paginated_response(per_page):
+    assert len(json_response['data']) <= per_page
+```
+
+同じ検証を複数の値で繰り返すパラメータ化は、`@pytest.mark.parametrize` デコレータで表現します。
+
 ### shared_context
 
 ```ruby
@@ -497,6 +675,18 @@ rspec --only-failures
 # ランダム順序を固定
 rspec --seed 1234
 ```
+
+**🐍 Python:**
+
+```bash
+pytest                              # 全テスト実行
+pytest tests/test_user.py           # 特定のファイル
+pytest tests/test_user.py::test_x   # 特定のテスト
+pytest -k "slow"                    # 名前でフィルタ
+pytest --lf                         # 失敗したテストのみ再実行（--last-failed）
+```
+
+`rspec` に対応するコマンドは `pytest` です。行番号指定 (`:10`) の代わりに `::テスト名` で個別テストを指定します。
 
 ### タグ
 

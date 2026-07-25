@@ -52,6 +52,20 @@ class User < ApplicationRecord
 end
 ```
 
+**🎯 Django:** Djangoはモデル（`models.py`）にフィールドを明示的に書き、その定義が真実の源（source of truth）になります。
+
+```python
+# blog/models.py
+from django.db import models
+
+class User(models.Model):
+    name = models.CharField(max_length=255)
+    age = models.IntegerField(null=True)
+    # クラス名 User → テーブルは既定で blog_user（アプリ名_モデル名・小文字）
+```
+
+Railsは**スキーマ（DB）が真実**でモデルにカラムを書かない（マイグレーションでDBを定義し、カラムはスキーマから自動でアクセサ化される）のに対し、Djangoは**モデルのフィールド定義が真実**で、そこからDBスキーマを生成します。この思想の違いが、以降のモデル定義・マイグレーション全体の差の根っこです。テーブル名の既定もRailsは複数形（`users`）、Djangoは `アプリ名_モデル名`（`blog_user`）と異なります。
+
 `ApplicationRecord`（`app/models/application_record.rb`）は全モデルの親クラスで、アプリ共通の設定やメソッドを集約する場所です。
 
 ```ruby
@@ -83,6 +97,22 @@ bin/rails generate model User name:string age:integer
 bin/rails g model Article title:string body:text published:boolean
 ```
 
+**🎯 Django:** Djangoにモデル生成コマンドは無く、`models.py` にクラスを手書きしてから `makemigrations` で差分を検出してマイグレーションを生成します。
+
+```python
+# blog/models.py
+class Article(models.Model):
+    title = models.CharField(max_length=255)
+    body = models.TextField()
+    published = models.BooleanField(default=False)
+```
+
+```bash
+python manage.py makemigrations   # models.py の差分からマイグレーションを自動生成
+```
+
+Railsは「型を引数で渡してジェネレータがマイグレーションを作る」、Djangoは「フィールドを書いて差分から生成する」という順序の違いがあります。
+
 生成されるファイル:
 
 ```
@@ -111,6 +141,26 @@ test/fixtures/users.yml                     # フィクスチャ
 | `binary` | バイナリデータ | `bytea` |
 | `references` | 外部キー（`belongs_to`） | `bigint` + index |
 | `json` / `jsonb` | 構造化データ | `json` / `jsonb` |
+
+**🎯 Django:** 上記の型はDjangoのフィールドクラスに概ね対応します。
+
+| Rails の型 | Django のフィールド |
+|-----------|---------------------|
+| `string` | `CharField(max_length=...)` |
+| `text` | `TextField` |
+| `integer` | `IntegerField` |
+| `bigint` | `BigIntegerField` |
+| `float` | `FloatField` |
+| `decimal` | `DecimalField(max_digits=, decimal_places=)` |
+| `boolean` | `BooleanField` |
+| `date` | `DateField` |
+| `time` | `TimeField` |
+| `datetime` | `DateTimeField` |
+| `binary` | `BinaryField` |
+| `references` | `ForeignKey(to, on_delete=...)` |
+| `json` / `jsonb` | `JSONField` |
+
+`CharField` は `max_length` が必須、`ForeignKey` は `on_delete`（`CASCADE` など）が必須である点がRailsと異なります。
 
 金額など誤差が許されない値は必ず `decimal` を使い、精度を指定します。
 
@@ -196,6 +246,18 @@ bin/rails db:migrate VERSION=20260725093000  # 指定バージョンまで移動
 bin/rails db:migrate:redo       # rollback → migrate を一度に（動作確認用）
 ```
 
+**🎯 Django:** Djangoは `makemigrations`（モデル差分からマイグレーションを生成）と `migrate`（DBへ適用）の2段階です。
+
+```bash
+python manage.py makemigrations        # models.py の変更からマイグレーションを生成
+python manage.py migrate               # 未適用のマイグレーションをDBへ適用
+python manage.py migrate blog 0002     # blogアプリを0002まで移動（前後どちらへも）
+python manage.py migrate blog zero     # blogの全マイグレーションを取り消す
+python manage.py showmigrations        # 適用状況の一覧（db:migrate:status 相当）
+```
+
+Railsのマイグレーションは**開発者が変更内容を手で記述**しますが、Djangoは**モデル定義の差分から `makemigrations` が自動生成**します。ロールバック専用コマンドは無く、`migrate アプリ名 番号` で任意のバージョンへ前後に移動する形（`db:rollback` 相当）です。
+
 `db:migrate:status` は各マイグレーションを `up`（適用済み）/ `down`（未適用）で一覧表示します。
 
 ### schema.rb と可逆性
@@ -243,6 +305,16 @@ user = User.create(name: "Bob", age: 25)
 user = User.create!(name: "Carol", age: 40)
 ```
 
+**🎯 Django:** Djangoはマネージャ `objects` 経由で操作します。`create()` は保存まで一度に行います。
+
+```python
+user = User(name="Alice", age=30)
+user.save()                                      # INSERT（戻り値なし）
+user = User.objects.create(name="Bob", age=25)   # new + save を一度に
+```
+
+Railsの `save`/`create` は戻り値（`true`/`false`）で成否を分岐できますが、Djangoの `save()`/`create()` は戻り値で成否を判定せず、バリデーションも自動では走りません（検証は別途 `full_clean()` で行う。後述）。
+
 `save` / `create` は**失敗時に false / 未保存オブジェクトを返す**のに対し、末尾に `!` が付くメソッドは**失敗時に例外を投げます**。フォーム処理では戻り値で分岐（`if user.save ... else ...`）し、失敗時は `user.errors` の内容を使って再描画します。確実に成功させたい処理では `!` 系を使います。
 
 ### Read（取得）
@@ -257,6 +329,17 @@ User.last                    # 主キー昇順で末尾1件
 User.all                     # 全件（Relation。実際のSQLは使う時に発行される）
 ```
 
+**🎯 Django:** 取得も `objects` 経由。1件取得の `get()` は、見つからないと `DoesNotExist`、複数該当すると `MultipleObjectsReturned` を投げます。
+
+```python
+User.objects.get(pk=1)                          # 主キーで1件。無ければ DoesNotExist（find 相当）
+User.objects.filter(email="a@b.c").first()      # 条件で1件、無ければ None（find_by 相当）
+User.objects.filter(active=True)                # 条件に合う複数件（QuerySet）
+User.objects.all()                              # 全件（QuerySet・遅延評価）
+```
+
+Railsは `find`（例外）と `find_by`（nil）で分かれますが、Djangoは `get()`（例外）と `filter(...).first()`（None）で使い分けます。
+
 ### Update（更新）
 
 ```ruby
@@ -268,6 +351,17 @@ user.age = 32; user.save  # 個別に代入してから save でもよい
 User.where(active: false).update_all(active: true)
 ```
 
+**🎯 Django:** インスタンスの属性を変えて `save()`、または QuerySet に対して `update()` で一括更新します。
+
+```python
+user = User.objects.get(pk=1)
+user.age = 31
+user.save()                                            # UPDATE（対象行のみ）
+User.objects.filter(active=False).update(active=True)  # 一括UPDATE（update_all 相当）
+```
+
+`queryset.update()` はRailsの `update_all` と同じく、バリデーションやシグナル（コールバック）を通さず直接UPDATE文を発行します。
+
 ### Delete（削除）
 
 ```ruby
@@ -277,6 +371,16 @@ user.delete     # コールバックを実行せず、直接DELETE文を発行�
 User.where(active: false).destroy_all # 条件に合う全件を destroy
 User.where(active: false).delete_all  # 全件を DELETE（コールバック無し）
 ```
+
+**🎯 Django:** 削除はインスタンスまたは QuerySet の `delete()` です。
+
+```python
+user = User.objects.get(pk=1)
+user.delete()                                  # 1件削除
+User.objects.filter(active=False).delete()     # 条件に合う全件を削除
+```
+
+Railsは `destroy`（コールバックあり）と `delete`（コールバック無し・直接DELETE）を区別しますが、Djangoの `delete()` はデフォルトで関連の連鎖削除やシグナルを伴います（`ForeignKey` の `on_delete` 設定に従う）。
 
 | メソッド | バリデーション | コールバック | 失敗時 |
 |---------|:---:|:---:|--------|
@@ -292,6 +396,8 @@ User.where(active: false).delete_all  # 全件を DELETE（コールバック無
 
 `where` などのクエリメソッドは `ActiveRecord::Relation` を返し、メソッドチェーンで組み立てられます。SQLは結果が必要になった時点で初めて実行されます（遅延評価）。
 
+**🎯 Django:** DjangoのクエリAPIも同じく遅延評価で、`filter()` などは `QuerySet` を返し、結果が必要になるまでSQLを発行しません。`QuerySet` は一度評価するとその結果をキャッシュするため、同じオブジェクトを再度ループしてもクエリは1回だけです。
+
 ### where
 
 ```ruby
@@ -302,6 +408,19 @@ User.where(name: nil)                         # IS NULL
 User.where.not(active: true)                  # NOT（active <> true）
 User.where(active: true).where("age > ?", 18) # AND でつながる
 ```
+
+**🎯 Django:** 条件は `filter()`、否定は `exclude()`。比較や集合は**フィールドルックアップ**（`__gte`, `__in`, `__contains` など）で表します。
+
+```python
+User.objects.filter(active=True)               # active = true
+User.objects.filter(age__range=(20, 30))       # BETWEEN 20 AND 30
+User.objects.filter(age__in=[20, 30, 40])      # IN (20, 30, 40)
+User.objects.filter(name__isnull=True)         # IS NULL
+User.objects.exclude(active=True)              # NOT（where.not 相当）
+User.objects.filter(active=True, age__gt=18)   # AND（複数条件はカンマ区切り）
+```
+
+RailsのハッシュとSQL文字列の使い分けに対し、Djangoは `フィールド__ルックアップ=値` の記法で大小・部分一致・IN などを表現します。OR条件は `Q` オブジェクト（`Q(a=1) | Q(b=2)`）を使います。
 
 ### SQLインジェクションを避ける
 
@@ -328,6 +447,18 @@ User.limit(10)                      # 最大10件
 User.limit(10).offset(20)           # 21件目から10件（ページング）
 ```
 
+**🎯 Django:** 並び替えは `order_by()`、件数制御はPythonの**スライス**で表します。
+
+```python
+User.objects.order_by("age")             # 昇順（ASC）
+User.objects.order_by("-age")            # 降順（先頭に - を付ける）
+User.objects.order_by("-age", "name")    # 複数キー
+User.objects.all()[:10]                  # LIMIT 10
+User.objects.all()[20:30]                # OFFSET 20 LIMIT 10（ページング）
+```
+
+Railsの `limit`/`offset` に相当する専用メソッドは無く、Pythonのスライス構文 `[start:stop]` を使います。
+
 ### 取得カラムを絞る
 
 ```ruby
@@ -338,6 +469,16 @@ User.distinct.pluck(:age)    # 重複を除いた値
 ```
 
 `select` はモデルオブジェクトを返し、`pluck` は配列を返します。単に値の一覧が欲しいだけなら `pluck` が効率的です。
+
+**🎯 Django:** 値の配列は `values_list()`、辞書のリストは `values()` で取得します。
+
+```python
+User.objects.values_list("name", flat=True)   # ["Alice", "Bob"]（pluck 単一列相当）
+User.objects.values_list("id", "name")        # [(1, "Alice"), (2, "Bob")]
+User.objects.values("id", "name")             # [{"id": 1, "name": "Alice"}, ...]
+```
+
+Railsの `pluck(:name)` に当たるのが `values_list("name", flat=True)` で、`flat=True` を付けるとタプルではなく値そのものの配列になります。
 
 ### 集計・グループ化
 
@@ -352,6 +493,22 @@ User.maximum(:age)                  # 最大
 User.group(:age).count              # {20 => 3, 30 => 5} 年齢ごとの人数
 User.group(:team_id).having("COUNT(*) > ?", 5).count # 5人超のチーム
 ```
+
+**🎯 Django:** 単純な件数は `count()`、集計関数は `aggregate()`、グループ集計は `annotate()` を使います。
+
+```python
+from django.db.models import Count, Sum, Avg
+
+User.objects.count()                              # 件数
+User.objects.filter(active=True).count()          # 条件付き件数
+User.objects.aggregate(Sum("age"))                # {"age__sum": 123} 合計
+User.objects.aggregate(Avg("age"))                # 平均
+# GROUP BY: values(...).annotate(...)
+User.objects.values("age").annotate(n=Count("id"))                       # 年齢ごとの人数
+User.objects.values("team_id").annotate(n=Count("id")).filter(n__gt=5)   # HAVING 相当
+```
+
+Railsの `group(...).count` は、Djangoでは `values("グループ列").annotate(集計)` の形で表し、`having` に当たる絞り込みは `annotate` の後段の `filter()` で行います。
 
 ### 存在確認と大量データの処理
 
@@ -394,6 +551,26 @@ end
 Article.published.recent.limit(5)
 Article.written_by(current_user).published
 ```
+
+**🎯 Django:** Djangoに `scope` 専用の構文は無く、カスタム **Manager** または **QuerySet** のメソッドとして定義します。
+
+```python
+class ArticleQuerySet(models.QuerySet):
+    def published(self):
+        return self.filter(published=True)
+
+    def recent(self):
+        return self.order_by("-created_at")
+
+class Article(models.Model):
+    # ... フィールド定義 ...
+    objects = ArticleQuerySet.as_manager()
+
+# スコープと同様にチェーンできる
+Article.objects.published().recent()[:5]
+```
+
+`QuerySet` のメソッドとして定義するとRailsのスコープと同様にチェーンできます。Railsの `default_scope` に当たるものはデフォルトマネージャの `get_queryset()` をオーバーライドして実現しますが、こちらも濫用は避けるのが定石です。
 
 ### クラスメソッドとの比較
 
@@ -441,6 +618,27 @@ class User < ApplicationRecord
   validates :age,   numericality: { greater_than_or_equal_to: 0 }
 end
 ```
+
+**🎯 Django:** Djangoの検証はフィールドの制約・`validators=` 引数・モデルの `clean()` に書き、`full_clean()` で実行します。
+
+```python
+from django.core.validators import MinValueValidator
+from django.core.exceptions import ValidationError
+
+class User(models.Model):
+    name = models.CharField(max_length=50)              # presence/length はフィールド制約
+    email = models.EmailField(unique=True)              # uniqueness
+    age = models.IntegerField(validators=[MinValueValidator(0)])
+
+    def clean(self):                                    # 複数フィールドにまたがる検証
+        if self.age and self.age > 150:
+            raise ValidationError({"age": "範囲外です"})
+
+user = User(name="")
+user.full_clean()   # ここで検証を実行（valid? に相当。失敗で ValidationError）
+```
+
+**大きな違い**: Railsは `save` 時にモデルのバリデーションが**自動実行**されますが、Djangoの `save()` は `full_clean()` を**自動では呼びません**。実務ではフォーム（`ModelForm`）やDRFのシリアライザ側で検証するのが主流で、モデル単体で検証したいときは明示的に `full_clean()` を呼びます。
 
 ### 主なバリデーションヘルパー
 
@@ -579,6 +777,26 @@ class User < ApplicationRecord
 end
 ```
 
+**🎯 Django:** DjangoにコールバックDSLは無く、**シグナル**（`pre_save`/`post_save`/`pre_delete`/`post_delete` など）か、`save()` メソッドのオーバーライドで実現します。
+
+```python
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+
+class User(models.Model):
+    # ... フィールド定義 ...
+    def save(self, *args, **kwargs):
+        self.email = self.email.strip().lower()   # before_save 相当の前処理
+        super().save(*args, **kwargs)
+
+@receiver(post_save, sender=User)
+def send_welcome_email(sender, instance, created, **kwargs):
+    if created:                                    # after_create 相当（created で新規判定）
+        ...  # メール送信など
+```
+
+Railsの `before_save`/`after_save` は `save()` オーバーライドや `pre_save`/`post_save` シグナルに、`before_create`/`after_create` はシグナルの `created` 判定に対応します。Railsの `after_commit`（トランザクション確定後）に厳密に当たるものは標準では無く、`transaction.on_commit(...)` を使います。
+
 ### 使いどころと注意
 
 - **メール送信・外部API呼び出し**は `after_commit` に置く。`after_save` だとトランザクションがロールバックされてもメールが飛んでしまう危険がある。
@@ -606,6 +824,24 @@ Article.published       # status = 1 のレコードを返すスコープが自�
 Article.statuses        # => {"draft"=>0, "published"=>1, "archived"=>2}
 ```
 
+**🎯 Django:** Djangoは `TextChoices` / `IntegerChoices` で選択肢を定義し、フィールドの `choices=` に渡します。
+
+```python
+class Article(models.Model):
+    class Status(models.IntegerChoices):
+        DRAFT = 0, "下書き"
+        PUBLISHED = 1, "公開"
+        ARCHIVED = 2, "アーカイブ"
+
+    status = models.IntegerField(choices=Status.choices, default=Status.DRAFT)
+
+article = Article(status=Article.Status.PUBLISHED)
+article.get_status_display()   # => "公開"（表示用ラベル）
+Article.objects.filter(status=Article.Status.PUBLISHED)
+```
+
+Railsの `enum` は `published?`・`published!`・スコープ `Article.published` を自動生成しますが、Djangoの `Choices` はそうした述語・更新メソッド・スコープを自動生成しません（代わりに `get_<field>_display()` で表示ラベルを得られる点が特徴）。
+
 `enum` を定義すると、状態ごとに以下が自動で用意されます。
 
 | 自動生成される要素 | 例 |
@@ -631,6 +867,21 @@ ActiveRecord::Base.transaction do
   raise ActiveRecord::Rollback if stock_insufficient? # 明示的な取消（外に伝播しない）
 end
 ```
+
+**🎯 Django:** Djangoは `transaction.atomic()` をコンテキストマネージャ（またはデコレータ）として使います。
+
+```python
+from django.db import transaction
+
+with transaction.atomic():
+    sender.balance -= 1000
+    sender.save()
+    receiver.balance += 1000
+    receiver.save()
+    # ブロック内で例外が送出されると、変更はすべてロールバックされる
+```
+
+`atomic()` ブロック内で例外が起きるとロールバックされる点はRailsと同じです。Railsの `ActiveRecord::Rollback`（外へ伝播しない明示的取消）に厳密に当たるものは無く、Djangoでは `transaction.set_rollback(True)` でロールバックを予約するか、通常の例外で中断します。
 
 `!` 付きメソッド（`save!` / `update!` / `create!`）を使う点が重要です。`!` 無しは失敗しても例外を投げず `false` を返すだけなので、ロールバックが起きません。
 
@@ -663,6 +914,16 @@ user.update(name: "Alice B")
 user.updated_at   # => 更新時刻に変わる（created_at は不変）
 user.touch        # 属性を変えずに updated_at だけ現在時刻に更新
 ```
+
+**🎯 Django:** Djangoに `timestamps` のような一括追加は無く、フィールドごとに `auto_now_add` / `auto_now` を指定します。
+
+```python
+class User(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)  # 作成時に一度だけ設定（created_at 相当）
+    updated_at = models.DateTimeField(auto_now=True)      # 保存のたびに更新（updated_at 相当）
+```
+
+`auto_now_add=True` がRailsの `created_at`、`auto_now=True` が `updated_at` に対応します。ただしこれらは `save()` 時にのみ更新され、`queryset.update()` では自動更新されない点に注意が必要です（Railsの `touch` に厳密に当たるものはありません）。
 
 これらのカラムはActiveRecordが自動管理するため、**手動で代入する必要はありません**。既存テーブルに後から追加するときは、既存行のために既定値を与えます（例: `add_timestamps :users, null: false, default: -> { "CURRENT_TIMESTAMP" }`）。
 

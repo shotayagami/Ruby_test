@@ -4,6 +4,8 @@
 
 FaradayはRubyの柔軟なHTTPクライアントライブラリです。ミドルウェアアーキテクチャにより、リクエスト/レスポンスの処理をカスタマイズできます。
 
+> **🐍 Python相当:** `requests`（定番・同期）／ `httpx`（`requests`互換APIで非同期にも対応した現代的な選択肢）。
+
 ```bash
 # インストール
 gem install faraday
@@ -42,6 +44,33 @@ Faraday.delete(url)
 Faraday.head(url)
 ```
 
+**🐍 Python:**
+
+```python
+import requests
+
+# GET
+resp = requests.get("https://api.example.com/users")
+resp.status_code  # => 200      (Faraday の response.status に相当)
+resp.text         # => 生のレスポンスボディ (Faraday の response.body)
+resp.json()       # => JSON をパース済み dict/list
+resp.headers      # => ヘッダー
+
+# POST (json= で自動的に JSON 化 + Content-Type 付与)
+resp = requests.post(
+    "https://api.example.com/users",
+    json={"name": "Alice", "email": "alice@example.com"},
+)
+
+# 他の HTTP メソッド
+requests.put(url, json=body)
+requests.patch(url, json=body)
+requests.delete(url)
+requests.head(url)
+```
+
+`requests` はボディを `resp.text`（文字列）と `resp.json()`（パース済み）に分けて公開します。Faradayの`f.response :json`ミドルウェアのように、`json=`引数を渡すだけでJSONエンコードとヘッダー付与が自動で行われます。
+
 ### コネクションの作成
 
 ```ruby
@@ -57,6 +86,26 @@ response = conn.get('/users')
 response = conn.get('/users/1')
 response = conn.post('/users', { name: 'Alice' })
 ```
+
+**🐍 Python:**
+
+```python
+import requests
+
+# Session はベースヘッダーや接続プールを共有する Faraday の conn 相当
+session = requests.Session()
+session.headers.update({"Authorization": "Bearer token123"})
+
+resp = session.get("https://api.example.com/users")
+resp = session.post("https://api.example.com/users", json={"name": "Alice"})
+
+# httpx なら base_url を持てるので Faraday の url: 指定により近い
+import httpx
+client = httpx.Client(base_url="https://api.example.com")
+resp = client.get("/users")
+```
+
+Faradayの`conn`はミドルウェアスタックとベース設定を束ねますが、`requests`ではベースURLの概念がなく、共有設定は`Session`に集約します。ベースURL付きのクライアントが欲しい場合は`httpx.Client(base_url=...)`が最も近い書き味です。
 
 ### 詳細な設定
 
@@ -311,6 +360,34 @@ conn = Faraday.new do |f|
 end
 ```
 
+**🐍 Python:**
+
+```python
+import requests
+
+session = requests.Session()
+
+# リクエスト前フック相当: 全リクエストに共通ヘッダーを付与
+session.headers["X-Request-ID"] = "..."
+
+# レスポンス後フック: response イベントに登録
+def log_response(resp, *args, **kwargs):
+    print(f"Response: {resp.status_code}")
+
+session.hooks["response"].append(log_response)
+
+# httpx はより明示的なイベントフックを持つ
+import httpx
+client = httpx.Client(
+    event_hooks={
+        "request": [lambda req: print(f"Request: {req.method} {req.url}")],
+        "response": [lambda resp: print(f"Response: {resp.status_code}")],
+    },
+)
+```
+
+Faradayのようなリクエスト/レスポンスを積み重ねるミドルウェアスタックは`requests`/`httpx`には無く、代わりに`Session`のフック（`session.hooks`はレスポンス専用）や`httpx`の`event_hooks`（request/responseの両方）で近いことを実現します。低レベルな差し替えは`requests`のカスタム`HTTPAdapter`が担います。
+
 ---
 
 ## 認証
@@ -440,6 +517,36 @@ class RobustApiClient
   end
 end
 ```
+
+**🐍 Python:**
+
+```python
+import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
+retry = Retry(
+    total=3,
+    backoff_factor=1,                         # Faraday の backoff_factor に相当
+    status_forcelist=[429, 500, 502, 503, 504],
+    allowed_methods=["GET", "POST"],
+)
+
+session = requests.Session()
+session.mount("https://", HTTPAdapter(max_retries=retry))
+
+# タイムアウトは呼び出しごとに指定 (接続, 読み取り)
+resp = session.get("https://api.example.com/users", timeout=(10, 10))
+
+# httpx は transport でリトライ、client でタイムアウトを設定
+import httpx
+client = httpx.Client(
+    transport=httpx.HTTPTransport(retries=3),
+    timeout=10.0,
+)
+```
+
+Faradayの`f.request :retry`ミドルウェアに相当するのは`urllib3`の`Retry`を`HTTPAdapter`に載せて`Session`に`mount`する方法です。ただし`urllib3`のリトライはステータスコードや接続エラーが対象で、`retry_if`のような任意条件は自前実装（例: `tenacity`）が必要です。タイムアウトはFaradayのように接続へ固定するのではなく、`requests`では呼び出しごとの`timeout`引数で指定します。
 
 ### 並列リクエスト
 

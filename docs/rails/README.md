@@ -44,6 +44,33 @@
 
 ---
 
+## Django（Python）との対応早見表
+
+PythonのフルスタックフレームワークであるDjangoの経験がある方向けに、RailsとDjangoの主要概念の対応をまとめます。
+
+| 概念 | Rails | Django |
+|------|-------|--------|
+| アーキテクチャ | MVC | MTV（ViewがController相当・TemplateがView相当） |
+| プロジェクト生成 | `rails new` | `django-admin startproject` + `startapp` |
+| ルーティング | `config/routes.rb`（`resources`） | `urls.py`（`path()` / DRF router） |
+| コントローラ相当 | Controller（アクション） | View（FBV/CBV, views.py） |
+| モデル/ORM | ActiveRecord（スキーマはDB側） | Django ORM（models.pyにフィールド明示） |
+| マイグレーション | `db:migrate` | `makemigrations` + `migrate` |
+| クエリ | `where`/`order` | `filter()`/`order_by()`（QuerySet） |
+| テンプレート | ERB | Django Template Language（DTL） |
+| フォーム | `form_with` | Django Forms / ModelForm |
+| 認証 | 自作 or Devise | 標準 `django.contrib.auth` / allauth |
+| 管理画面 | なし（scaffold/手動） | 標準の Django Admin |
+| 非同期ジョブ | Active Job（Solid Queue/Sidekiq） | Celery |
+| CLI | `bin/rails` | `manage.py` |
+| 設定思想 | 設定より規約 | 明示的設定（settings.py）・app分割 |
+
+RailsとDjangoはともにルーティング・ORM・テンプレートを備えたフルスタックフレームワークですが、Railsは「設定より規約（CoC）」で定型作業を最小化するのが特徴です。一方Djangoは`settings.py`やモデル定義を明示的に記述し、標準で強力なDjango Admin（管理画面）を備える点が大きく異なります。
+
+なお、各章の本文にも該当箇所ごとにDjangoとの比較を随時追記しています。
+
+---
+
 ## 関連する既存資料
 
 Railsの内部やエコシステムを理解する上で、本リポジトリの以下の資料も役立ちます。

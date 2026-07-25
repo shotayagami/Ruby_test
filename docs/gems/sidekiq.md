@@ -4,6 +4,8 @@
 
 SidekiqはRedisを使用した高性能なバックグラウンドジョブ処理システムです。マルチスレッドで動作し、非同期処理を効率的に実行できます。
 
+> **🐍 Python相当:** Celery（定番の分散タスクキュー）。軽量なら RQ（Redis Queue）。
+
 ```bash
 # インストール
 gem install sidekiq
@@ -36,6 +38,20 @@ class HardWorker
 end
 ```
 
+**🐍 Python:** Celeryでは、include するクラスではなくデコレータを付けた関数としてタスクを定義する。
+
+```python
+# tasks.py
+from celery import shared_task
+
+@shared_task
+def hard_worker(name, count):
+    for i in range(count):
+        print(f"Processing {name}: {i + 1}/{count}")
+```
+
+Sidekiqの `perform` メソッドが、Celeryではタスク関数の本体に相当する。
+
 ### ジョブの実行
 
 ```ruby
@@ -50,6 +66,23 @@ HardWorker.perform_at(Time.now + 1.hour, 'task', 5)
 
 # 同期実行（テスト用）
 HardWorker.new.perform('task', 5)
+```
+
+**🐍 Python:** Celeryでは `delay()` が簡易呼び出し、`apply_async()` が詳細指定版。遅延・時刻指定は `countdown` / `eta` を使う。
+
+```python
+# 非同期実行（perform_async 相当）
+hard_worker.delay('task', 5)
+
+# 遅延実行（perform_in 相当、5分後）
+hard_worker.apply_async(args=['task', 5], countdown=300)
+
+# 指定時刻に実行（perform_at 相当）
+from datetime import datetime, timedelta
+hard_worker.apply_async(args=['task', 5], eta=datetime.now() + timedelta(hours=1))
+
+# 同期実行（テスト用）
+hard_worker('task', 5)
 ```
 
 ---
@@ -70,6 +103,14 @@ end
 Sidekiq.configure_client do |config|
   config.redis = { url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/0') }
 end
+```
+
+**🐍 Python:** Celeryはブローカを `broker_url` で指定する。SidekiqがRedis専用なのに対し、CeleryはRedis/RabbitMQなどを選べる（RQはRedis専用でよりシンプル）。
+
+```python
+# celeryconfig.py / Celery(...) の設定
+app = Celery('myapp', broker='redis://localhost:6379/0')
+# RabbitMQ を使う場合: broker='amqp://guest@localhost//'
 ```
 
 ### sidekiq.yml
@@ -130,6 +171,14 @@ class ConfiguredWorker
     # 処理
   end
 end
+```
+
+**🐍 Python:** Celeryではキューやリトライをデコレータ引数で指定する。`retry`（自動リトライ有効化）や `max_retries`、遅延確認応答の `acks_late` が相当する。
+
+```python
+@shared_task(queue='critical', max_retries=5, acks_late=True)
+def configured_worker(id):
+    ...
 ```
 
 ### リトライ設定
@@ -379,6 +428,8 @@ end
 ---
 
 ## Web UI
+
+> **🐍 Python相当:** Celeryの監視UIは **Flower**（`pip install flower` → `celery -A myapp flower` で起動し、Webブラウザからジョブやワーカーを確認できる）。
 
 ### 設定
 
@@ -699,6 +750,23 @@ hourly_sync:
 # 読み込み
 schedule = YAML.load_file('config/schedule.yml')
 Sidekiq::Cron::Job.load_from_hash(schedule)
+```
+
+**🐍 Python:** Celeryの定期実行は **Celery Beat**（`beat_schedule` にcron/interval を定義し、`celery -A myapp beat` で起動）。sidekiq-cron / sidekiq-scheduler に相当する。
+
+```python
+from celery.schedules import crontab
+
+app.conf.beat_schedule = {
+    'daily-cleanup': {
+        'task': 'tasks.cleanup_worker',
+        'schedule': crontab(hour=3, minute=0),  # 毎日午前3時
+    },
+    'hourly-sync': {
+        'task': 'tasks.sync_worker',
+        'schedule': crontab(minute=0),  # 毎時
+    },
+}
 ```
 
 ---

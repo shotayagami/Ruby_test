@@ -26,6 +26,18 @@ gem -v
 gem update --system
 ```
 
+**🐍 Python:**
+
+```bash
+# pip（Pythonのパッケージ管理システム）のバージョン確認
+pip --version
+
+# pip 自体の更新
+pip install --upgrade pip
+```
+
+RubyGemsは言語標準に統合されたパッケージ管理システムです。Pythonでの相当物は `pip` で、こちらも標準で付属します。
+
 ### Gemの構造
 
 ```
@@ -81,6 +93,34 @@ gem update rails                  # 特定のGemを更新
 gem cleanup                       # 古いバージョンを削除
 ```
 
+**🐍 Python:**
+
+```bash
+# インストール
+pip install requests
+pip install requests==2.31.0      # バージョン指定（-v ではなく == で固定）
+pip install "requests>=2.31,<3"   # バージョン範囲
+pip install --pre requests        # プレリリース版
+
+# アンインストール
+pip uninstall requests
+# 注: pip はバージョン単位のアンインストール不可（常に現在の1バージョンのみ）
+
+# 一覧
+pip list                          # インストール済み一覧
+pip show requests                 # 特定パッケージの情報（gem info 相当）
+
+# 検索
+# pip search はサービス停止のため利用不可。PyPI (https://pypi.org) をブラウザで検索
+
+# 更新
+pip install --upgrade requests    # 特定パッケージを更新
+
+# 一括更新の標準コマンドは pip に無い（requirements で管理するのが一般的）
+```
+
+`gem install X -v 7.0.0` のバージョン指定は、pipでは `pip install X==7.0.0` と `==` で表現します。`gem search`（リモート検索）に相当する `pip search` は現在停止しており、PyPIのサイトで検索します。
+
 ### Gemの場所
 
 ```bash
@@ -129,6 +169,18 @@ bundle -v
 bundler -v
 ```
 
+**🐍 Python:** Bundlerに相当する仕組みは、Pythonでは `pip + venv`（仮想環境）の組み合わせ、または `Poetry` / `uv` といった統合ツールが担います。
+
+```bash
+# 仮想環境ツールは標準ライブラリなので追加インストール不要（venv）
+python -m venv --help
+
+# Poetry / uv を使う場合はそれ自体をインストール
+pip install poetry
+```
+
+大きな思想差として、Bundlerは「システムに入れたGemをプロジェクト単位で選択・固定する」のに対し、Pythonのvenvは「プロジェクトごとに隔離された独立のPython環境を作り、そこにパッケージを入れる」というアプローチを取ります。
+
 ### 基本的な使い方
 
 ```bash
@@ -155,6 +207,29 @@ bundle exec ruby script.rb
 bundle exec rails server
 bundle exec rspec
 ```
+
+**🐍 Python:** venvを使う流れは以下のようになります。
+
+```bash
+# 仮想環境の作成（Gemfile 作成に相当する初期化ステップ）
+python -m venv venv
+
+# 依存関係をインストール（bundle install 相当）
+pip install -r requirements.txt
+
+# 特定パッケージを追加（bundle add 相当。追加後は freeze で記録するのが慣習）
+pip install rich
+pip freeze > requirements.txt
+
+# 依存関係の更新（bundle update 相当）
+pip install --upgrade -r requirements.txt
+
+# Poetry を使う場合の追加・更新
+poetry add rich
+poetry update
+```
+
+`bundle exec cmd` は「Gemfileで固定した環境でコマンドを実行する」ものです。Pythonでは各コマンドに `bundle exec` を付けるのではなく、事前に仮想環境を有効化（`source venv/bin/activate`、Windowsは `venv\Scripts\activate`）してからコマンドを実行し、そのシェルの間ずっと隔離環境が効き続ける、という思想の違いがあります。Poetryでは `poetry run cmd` が `bundle exec cmd` に最も近い書き方です。
 
 ### bundle exec
 
@@ -215,6 +290,26 @@ gem "pg"
 gem "puma"
 ```
 
+**🐍 Python:** `Gemfile` に相当するのは `requirements.txt`（シンプルな一覧）、または `pyproject.toml`（Poetry/uv など現代的なツール）です。
+
+```text
+# requirements.txt
+django>=4.2,<5
+psycopg2
+gunicorn
+```
+
+```toml
+# pyproject.toml（Poetry の例）
+[tool.poetry.dependencies]
+python = "^3.11"
+django = "^4.2"
+psycopg2 = "*"
+gunicorn = "*"
+```
+
+`Gemfile` のように「ソースやRubyバージョン」をコード的に書けるのに対し、`requirements.txt` は基本的にパッケージ名とバージョン制約を1行ずつ並べるだけの素朴な形式です。より宣言的な管理は `pyproject.toml` が担います。
+
 ### バージョン指定
 
 ```ruby
@@ -258,6 +353,25 @@ end
 # bundle config set without development test
 # bundle install
 ```
+
+**🐍 Python:** `group :development, :test` のようなグループ分けは、Poetryの依存グループ（`--group`）や、`pyproject.toml` の optional-dependencies（extras）で表現します。
+
+```toml
+# pyproject.toml（Poetry の依存グループ）
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+ruff = "^0.5"
+```
+
+```bash
+# 開発用グループに追加（group :development do ... 相当）
+poetry add --group dev pytest ruff
+
+# 開発グループを除外してインストール（bundle config set without development 相当）
+poetry install --without dev
+```
+
+素の `requirements.txt` にはグループの概念がないため、慣習的に `requirements.txt`（本番用）と `requirements-dev.txt`（開発用）のようにファイルを分けて管理します。
 
 ### プラットフォーム
 
@@ -545,6 +659,21 @@ rake install      # ローカルインストール
 rake release      # タグ付け + push
 ```
 
+**🐍 Python:** 自作パッケージのビルドと公開（PyPIへの登録）は、標準的には `build` + `twine`、Poetryなら `poetry build` / `poetry publish` を使います。
+
+```bash
+# 標準ツールでのビルドと公開
+pip install build twine
+python -m build            # gem build 相当（dist/ に成果物を生成）
+twine upload dist/*        # gem push 相当（PyPI に公開）
+
+# Poetry を使う場合
+poetry build               # gem build 相当
+poetry publish             # gem push 相当
+```
+
+RubyGems.orgへの `gem push` に相当するのが、PyPI（<https://pypi.org>）への `twine upload` / `poetry publish` です。
+
 ### CLIツールとして
 
 ```ruby
@@ -603,6 +732,8 @@ bundle audit
 bundle audit --fix
 ```
 
+> **🐍 Python:** `pip install pip-audit` → `pip-audit`（`bundle audit` 相当。依存関係の既知の脆弱性をスキャン）
+
 ### Gemfile.lock の重要性
 
 ```bash
@@ -613,6 +744,19 @@ bundle install --deployment
 # CI でのチェック
 bundle install --frozen  # Gemfile.lock と一致しない場合エラー
 ```
+
+**🐍 Python:** `Gemfile.lock`（全依存関係を厳密にピン止めした再現可能なロックファイル）に相当するのは、`poetry.lock` / `uv.lock`、あるいは `pip freeze` で全バージョンを固定した `requirements.txt` です。
+
+```bash
+# pip freeze で現在の環境を厳密にピン止め（簡易的なロックファイル相当）
+pip freeze > requirements.txt
+
+# ロックファイルに厳密に従ってインストール（bundle install --frozen 相当）
+poetry install --sync    # poetry.lock どおりに同期
+uv sync --locked         # uv.lock と一致しない場合エラー
+```
+
+`bundle install --deployment` / `--frozen` のように「ロック内容から逸脱させない」運用は、Poetryの `--sync` や uvの `--locked` が対応します。どちらもロックファイルはバージョン管理にコミットするのが原則です。
 
 ### 信頼できるソースの使用
 

@@ -4,6 +4,10 @@
 
 ActiveRecordはRuby on Railsに含まれるORM（Object-Relational Mapping）ですが、単体でも使用可能です。データベースとRubyオブジェクトを結びつけ、SQLを書かずにデータ操作ができます。
 
+> **🐍 Python相当:** SQLAlchemy（単体ORM）。フルスタックなら Django ORM。
+
+**🐍 設計思想の違い:** ActiveRecordは「Active Recordパターン」（モデルインスタンス＝1行で、オブジェクト自身が永続化の責務を持つ）を採る。一方SQLAlchemyは「Data Mapper寄り」で、永続化の責務を `Session` が担い、モデルとDB操作を分離する（そのため `session.add` / `session.commit` が必要）。なお Django ORM は ActiveRecord と同じ Active Record 寄りで、`Model.objects.create()` のようにモデル自身が保存する。
+
 ```bash
 # インストール
 gem install activerecord
@@ -49,6 +53,20 @@ ActiveRecord::Base.establish_connection(
   username: 'root',
   password: 'password'
 )
+```
+
+**🐍 Python:** `create_engine()` でエンジンを作り、`Session` でDB操作する。ActiveRecordが `Base` にグローバルな接続を持つのに対し、SQLAlchemyはエンジンとセッションを明示的に管理する。
+
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
+engine = create_engine("sqlite:///db/development.sqlite3")
+# engine = create_engine("postgresql+psycopg://postgres:password@localhost/myapp_development")
+# engine = create_engine("mysql+mysqldb://root:password@localhost/myapp_development")
+
+with Session(engine) as session:
+    ...
 ```
 
 ### 環境変数から接続
@@ -117,6 +135,28 @@ class CreatePosts < ActiveRecord::Migration[7.0]
     add_index :posts, :published_at
   end
 end
+```
+
+**🐍 Python:** SQLAlchemy自体はマイグレーション機能を持たず、**Alembic**（別パッケージ）を使う。`alembic revision --autogenerate -m "create users"` で差分から生成し、`alembic upgrade head` / `alembic downgrade -1` で適用・ロールバックする。
+
+```python
+# alembic/versions/xxxx_create_users.py
+from alembic import op
+import sqlalchemy as sa
+
+def upgrade() -> None:
+    op.create_table(
+        "users",
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("name", sa.String, nullable=False),
+        sa.Column("email", sa.String, nullable=False),
+        sa.Column("age", sa.Integer),
+        sa.Column("active", sa.Boolean, server_default=sa.true()),
+    )
+    op.create_index("ix_users_email", "users", ["email"], unique=True)
+
+def downgrade() -> None:
+    op.drop_table("users")
 ```
 
 ### マイグレーションの実行（Rails以外）
@@ -196,6 +236,26 @@ class Post < ActiveRecord::Base
 end
 ```
 
+**🐍 Python:** ActiveRecordがテーブルからカラムを自動取得するのに対し、SQLAlchemyはモデルクラスに `Mapped[...]` + `mapped_column()` でカラムを明示的に定義する必要がある。テーブル名も `__tablename__` で指定する。
+
+```python
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+class Base(DeclarativeBase):
+    pass
+
+class User(Base):
+    __tablename__ = "users"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    email: Mapped[str]
+
+class Post(Base):
+    __tablename__ = "posts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    title: Mapped[str]
+```
+
 ### テーブル名のカスタマイズ
 
 ```ruby
@@ -239,6 +299,22 @@ end
 
 # first_or_create
 user = User.where(email: 'alice@example.com').first_or_create(name: 'Alice')
+```
+
+**🐍 Python:** ActiveRecordは `create` 一発で保存まで行うが、SQLAlchemyはインスタンスを `session.add()` してから `session.commit()` で永続化する2段階になる。
+
+```python
+# 単一（new + save 相当）
+user = User(name="Alice", email="alice@example.com")
+session.add(user)
+session.commit()
+
+# 複数
+session.add_all([
+    User(name="Dave", email="dave@example.com"),
+    User(name="Eve", email="eve@example.com"),
+])
+session.commit()
 ```
 
 ### Read（読み取り）
@@ -286,6 +362,25 @@ emails = User.select(:email).distinct
 counts = User.group(:age).count
 ```
 
+**🐍 Python:** 主キー取得は `session.get(User, id)`。条件検索は `select(User).where(...)` を組み立て、`session.scalars(...)` で実行してモデルのリストを得る。
+
+```python
+from sqlalchemy import select
+
+# 単一レコード
+user = session.get(User, 1)                       # User.find(1) 相当（無ければ None）
+
+# 条件検索
+users = session.scalars(select(User).where(User.active == True)).all()
+users = session.scalars(select(User).where(User.age > 18)).all()
+users = session.scalars(select(User).where(User.age.in_([18, 20, 25]))).all()
+
+# 並び替え・制限・選択
+users = session.scalars(
+    select(User).order_by(User.name.desc()).limit(10).offset(20)
+).all()
+```
+
 ### Update（更新）
 
 ```ruby
@@ -311,6 +406,20 @@ user.update_column(:login_count, 5)
 user.update_columns(login_count: 5, last_login_at: Time.current)
 ```
 
+**🐍 Python:** 取得したオブジェクトの属性を書き換え、`session.commit()` で反映する（`save` 相当）。ダーティ検知はセッションが自動で行う。
+
+```python
+user = session.get(User, 1)
+user.name = "Alice Updated"
+user.age = 26
+session.commit()
+
+# 一括更新
+from sqlalchemy import update
+session.execute(update(User).where(User.active == False).values(active=True))
+session.commit()
+```
+
 ### Delete（削除）
 
 ```ruby
@@ -326,6 +435,14 @@ User.where(active: false).delete_all   # コールバックなし
 # ID指定
 User.destroy(1)
 User.destroy([1, 2, 3])
+```
+
+**🐍 Python:** `session.delete(obj)` してから `session.commit()`。
+
+```python
+user = session.get(User, 1)
+session.delete(user)
+session.commit()
 ```
 
 ---
@@ -352,6 +469,19 @@ end
 users = User.active.adult.recent.limit(10)
 ```
 
+**🐍 Python:** `select()` に `where().order_by().limit()` をチェーンして同じクエリを組み立てる。ActiveRecordのRelationが遅延評価されるように、SQLAlchemyの `select()` も実行するまでSQLを発行しない。
+
+```python
+stmt = (
+    select(User)
+    .where(User.active == True)
+    .where(User.age > 18)
+    .order_by(User.created_at.desc())
+    .limit(10)
+)
+users = session.scalars(stmt).all()
+```
+
 ### 集計
 
 ```ruby
@@ -365,6 +495,20 @@ User.sum(:points)                      # 合計
 
 User.group(:country).count             # グループ別カウント
 User.group(:country).average(:age)     # グループ別平均
+```
+
+**🐍 Python:** 集計は `func.count` / `func.avg` などのSQL関数を `select()` に置く。スカラー1件は `session.scalar()` で取得する。
+
+```python
+from sqlalchemy import func
+
+total = session.scalar(select(func.count()).select_from(User))
+avg_age = session.scalar(select(func.avg(User.age)))
+
+# グループ別カウント
+rows = session.execute(
+    select(User.country, func.count()).group_by(User.country)
+).all()
 ```
 
 ### 存在確認

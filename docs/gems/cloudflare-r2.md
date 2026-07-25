@@ -4,6 +4,8 @@
 
 Cloudflare R2はS3互換のオブジェクトストレージサービスです。RubyからはAWS SDK（`aws-sdk-s3`）を使用してアクセスできます。エグレス料金が無料という特徴があり、コスト効率の良いストレージソリューションです。
 
+> **🐍 Python相当:** boto3（AWS SDK for Python。R2はS3互換なので、`endpoint_url`をR2に向けるだけでそのまま使える）。
+
 ```bash
 # インストール
 gem install aws-sdk-s3
@@ -60,6 +62,21 @@ r2_client = Aws::S3::Client.new(
 )
 ```
 
+**🐍 Python:** boto3でも同じく`endpoint_url`をR2に向け、`region_name="auto"`を指定するだけ。
+
+```python
+import os
+import boto3
+
+r2_client = boto3.client(
+    "s3",
+    aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+    aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+    endpoint_url=f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
+    region_name="auto",
+)
+```
+
 ### 環境変数
 
 ```bash
@@ -84,6 +101,20 @@ r2_resource = Aws::S3::Resource.new(
 bucket = r2_resource.bucket(ENV['R2_BUCKET_NAME'])
 ```
 
+**🐍 Python:** boto3も高レベルの`resource`インターフェースを持つ（`boto3.resource("s3", ...)`）。
+
+```python
+r2_resource = boto3.resource(
+    "s3",
+    aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+    aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+    endpoint_url=f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
+    region_name="auto",
+)
+
+bucket = r2_resource.Bucket(os.environ["R2_BUCKET_NAME"])
+```
+
 ---
 
 ## バケット操作
@@ -98,6 +129,14 @@ response.buckets.each do |bucket|
 end
 ```
 
+**🐍 Python:** レスポンスは辞書で返る。
+
+```python
+response = r2_client.list_buckets()
+for bucket in response["Buckets"]:
+    print(f"{bucket['Name']} - Created: {bucket['CreationDate']}")
+```
+
 ### バケットの作成
 
 ```ruby
@@ -106,6 +145,8 @@ r2_client.create_bucket(bucket: 'my-new-bucket')
 puts "Bucket created successfully"
 ```
 
+**🐍 Python:** `r2_client.create_bucket(Bucket="my-new-bucket")`
+
 ### バケットの削除
 
 ```ruby
@@ -113,6 +154,8 @@ puts "Bucket created successfully"
 r2_client.delete_bucket(bucket: 'my-bucket')
 puts "Bucket deleted successfully"
 ```
+
+**🐍 Python:** `r2_client.delete_bucket(Bucket="my-bucket")`
 
 ### バケットの存在確認
 
@@ -129,6 +172,19 @@ if bucket_exists?(r2_client, 'my-bucket')
 else
   puts "Bucket not found"
 end
+```
+
+**🐍 Python:** boto3では専用の例外クラスではなく`botocore.exceptions.ClientError`を捕捉し、エラーコードで判定する。
+
+```python
+from botocore.exceptions import ClientError
+
+def bucket_exists(client, bucket_name):
+    try:
+        client.head_bucket(Bucket=bucket_name)
+        return True
+    except ClientError:
+        return False
 ```
 
 ---
@@ -167,6 +223,29 @@ r2_client.put_object(
 )
 ```
 
+**🐍 Python:** 文字列/バイト列は`put_object`、ローカルファイルは`upload_file`が簡単。引数名はPascalCase（`Bucket`/`Key`/`Body`）。
+
+```python
+# 文字列をアップロード
+r2_client.put_object(
+    Bucket=os.environ["R2_BUCKET_NAME"],
+    Key="path/to/file.txt",
+    Body="Hello, R2!",
+)
+
+# ファイルをアップロード（パス指定でOK）
+r2_client.upload_file("local_file.txt", os.environ["R2_BUCKET_NAME"], "uploads/file.txt")
+
+# メタデータ付きでアップロード
+r2_client.put_object(
+    Bucket=os.environ["R2_BUCKET_NAME"],
+    Key="documents/report.pdf",
+    Body=open("report.pdf", "rb").read(),
+    ContentType="application/pdf",
+    Metadata={"uploaded-by": "user123", "category": "reports"},
+)
+```
+
 ### オブジェクトのダウンロード
 
 ```ruby
@@ -186,6 +265,18 @@ r2_client.get_object(
   key: 'path/to/file.txt',
   response_target: 'downloaded_file.txt'
 )
+```
+
+**🐍 Python:** `get_object`のボディは`response["Body"]`（ストリーム）で`.read()`する。ファイルへ直接保存するなら`download_file`。
+
+```python
+# オブジェクトを取得
+response = r2_client.get_object(Bucket=os.environ["R2_BUCKET_NAME"], Key="path/to/file.txt")
+content = response["Body"].read()
+print(content)
+
+# ファイルに保存
+r2_client.download_file(os.environ["R2_BUCKET_NAME"], "path/to/file.txt", "downloaded_file.txt")
 ```
 
 ### オブジェクトの一覧
@@ -226,6 +317,24 @@ response.contents.each do |object|
 end
 ```
 
+**🐍 Python:** `list_objects_v2`は同名。結果が空だと`Contents`キー自体が存在しないので`.get("Contents", [])`で受ける。大量件数はページネーターが安全。
+
+```python
+response = r2_client.list_objects_v2(
+    Bucket=os.environ["R2_BUCKET_NAME"],
+    Prefix="images/",
+    MaxKeys=100,
+)
+for obj in response.get("Contents", []):
+    print(f"{obj['Key']} - {obj['LastModified']}")
+
+# ページネーション（全件を安全に走査）
+paginator = r2_client.get_paginator("list_objects_v2")
+for page in paginator.paginate(Bucket=os.environ["R2_BUCKET_NAME"], Prefix="images/"):
+    for obj in page.get("Contents", []):
+        print(obj["Key"])
+```
+
 ### オブジェクトの削除
 
 ```ruby
@@ -248,6 +357,19 @@ r2_client.delete_objects(
 )
 ```
 
+**🐍 Python:** `delete_object`は同名。一括削除は`delete_objects`に`Delete={"Objects": [...]}`を渡す。
+
+```python
+# 単一オブジェクトを削除
+r2_client.delete_object(Bucket=os.environ["R2_BUCKET_NAME"], Key="path/to/file.txt")
+
+# 複数オブジェクトを一括削除
+r2_client.delete_objects(
+    Bucket=os.environ["R2_BUCKET_NAME"],
+    Delete={"Objects": [{"Key": "file1.txt"}, {"Key": "file2.txt"}, {"Key": "folder/file3.txt"}]},
+)
+```
+
 ### オブジェクトのコピー
 
 ```ruby
@@ -266,6 +388,16 @@ r2_client.copy_object(
 )
 ```
 
+**🐍 Python:** `CopySource`は`"bucket/key"`形式の文字列でも`{"Bucket": ..., "Key": ...}`辞書でも指定できる。
+
+```python
+r2_client.copy_object(
+    Bucket=os.environ["R2_BUCKET_NAME"],
+    CopySource={"Bucket": os.environ["R2_BUCKET_NAME"], "Key": "original.txt"},
+    Key="copy.txt",
+)
+```
+
 ### オブジェクトの存在確認
 
 ```ruby
@@ -281,6 +413,17 @@ if object_exists?(r2_client, ENV['R2_BUCKET_NAME'], 'my-file.txt')
 end
 ```
 
+**🐍 Python:** バケット存在確認と同様、`head_object`で`ClientError`を捕捉して判定する。
+
+```python
+def object_exists(client, bucket, key):
+    try:
+        client.head_object(Bucket=bucket, Key=key)
+        return True
+    except ClientError:
+        return False
+```
+
 ### メタデータの取得
 
 ```ruby
@@ -293,6 +436,16 @@ puts "Size: #{response.content_length}"
 puts "Content-Type: #{response.content_type}"
 puts "Last Modified: #{response.last_modified}"
 puts "Metadata: #{response.metadata}"
+```
+
+**🐍 Python:** `head_object`のレスポンスは辞書。属性名はPascalCase、ユーザー定義メタデータは`Metadata`に入る。
+
+```python
+response = r2_client.head_object(Bucket=os.environ["R2_BUCKET_NAME"], Key="path/to/file.txt")
+print("Size:", response["ContentLength"])
+print("Content-Type:", response["ContentType"])
+print("Last Modified:", response["LastModified"])
+print("Metadata:", response["Metadata"])
 ```
 
 ---
@@ -316,6 +469,17 @@ download_url = signer.presigned_url(
 puts download_url
 ```
 
+**🐍 Python:** boto3では専用のPresignerクラスは不要で、クライアントの`generate_presigned_url`を直接呼ぶ。パラメータは`Params`辞書、有効期限は`ExpiresIn`（秒）。
+
+```python
+download_url = r2_client.generate_presigned_url(
+    "get_object",
+    Params={"Bucket": os.environ["R2_BUCKET_NAME"], "Key": "path/to/file.txt"},
+    ExpiresIn=3600,
+)
+print(download_url)
+```
+
 ### アップロード用URL
 
 ```ruby
@@ -332,6 +496,21 @@ puts upload_url
 
 # クライアントからのアップロード例（curl）
 # curl -X PUT -H "Content-Type: text/plain" --data-binary @file.txt "#{upload_url}"
+```
+
+**🐍 Python:** アップロード用も`put_object`を指定して同様に生成する。
+
+```python
+upload_url = r2_client.generate_presigned_url(
+    "put_object",
+    Params={
+        "Bucket": os.environ["R2_BUCKET_NAME"],
+        "Key": "uploads/new-file.txt",
+        "ContentType": "text/plain",
+    },
+    ExpiresIn=3600,
+)
+print(upload_url)
 ```
 
 ---
@@ -352,6 +531,20 @@ object.upload_file(
   'large-file.zip',
   multipart_threshold: 15 * 1024 * 1024,  # 15MB以上でマルチパート
   part_size: 10 * 1024 * 1024              # パートサイズ10MB
+)
+```
+
+**🐍 Python:** `upload_file`が閾値を超えると自動でマルチパートに切り替わる。閾値やパートサイズは`TransferConfig`で調整する。
+
+```python
+from boto3.s3.transfer import TransferConfig
+
+config = TransferConfig(
+    multipart_threshold=15 * 1024 * 1024,  # 15MB以上でマルチパート
+    multipart_chunksize=10 * 1024 * 1024,  # パートサイズ10MB
+)
+r2_client.upload_file(
+    "large-file.zip", os.environ["R2_BUCKET_NAME"], "large-file.zip", Config=config
 )
 ```
 
@@ -391,6 +584,35 @@ r2_client.complete_multipart_upload(
 )
 ```
 
+**🐍 Python:** APIメソッド名は同じ（`create_multipart_upload` / `upload_part` / `complete_multipart_upload`）。各パートは`{"ETag": ..., "PartNumber": ...}`で集める。
+
+```python
+key = "large-file.zip"
+multipart = r2_client.create_multipart_upload(Bucket=os.environ["R2_BUCKET_NAME"], Key=key)
+upload_id = multipart["UploadId"]
+
+parts = []
+part_number = 1
+with open("large-file.zip", "rb") as f:
+    while chunk := f.read(5 * 1024 * 1024):  # 5MBずつ
+        response = r2_client.upload_part(
+            Bucket=os.environ["R2_BUCKET_NAME"],
+            Key=key,
+            UploadId=upload_id,
+            PartNumber=part_number,
+            Body=chunk,
+        )
+        parts.append({"ETag": response["ETag"], "PartNumber": part_number})
+        part_number += 1
+
+r2_client.complete_multipart_upload(
+    Bucket=os.environ["R2_BUCKET_NAME"],
+    Key=key,
+    UploadId=upload_id,
+    MultipartUpload={"Parts": parts},
+)
+```
+
 ---
 
 ## Rails との連携
@@ -417,6 +639,18 @@ cloudflare_r2:
 ```ruby
 # config/environments/production.rb
 config.active_storage.service = :cloudflare_r2
+```
+
+**🐍 Python:** Djangoでは`django-storages`（`S3Boto3Storage`）を使い、`AWS_S3_ENDPOINT_URL`をR2に向けることで同様の統合ができる。
+
+```python
+# settings.py
+STORAGES = {"default": {"BACKEND": "storages.backends.s3.S3Storage"}}
+AWS_ACCESS_KEY_ID = os.environ["R2_ACCESS_KEY_ID"]
+AWS_SECRET_ACCESS_KEY = os.environ["R2_SECRET_ACCESS_KEY"]
+AWS_STORAGE_BUCKET_NAME = os.environ["R2_BUCKET_NAME"]
+AWS_S3_ENDPOINT_URL = f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com"
+AWS_S3_REGION_NAME = "auto"
 ```
 
 ### CarrierWave 設定
@@ -542,6 +776,65 @@ class R2StorageService
 end
 ```
 
+**🐍 Python:** boto3で同等のサービスクラスを組む例。呼び出すメソッドはこれまでと同じ。
+
+```python
+import os
+import boto3
+from botocore.exceptions import ClientError
+
+
+class R2StorageService:
+    def __init__(self):
+        self.client = boto3.client(
+            "s3",
+            aws_access_key_id=os.environ["R2_ACCESS_KEY_ID"],
+            aws_secret_access_key=os.environ["R2_SECRET_ACCESS_KEY"],
+            endpoint_url=f"https://{os.environ['R2_ACCOUNT_ID']}.r2.cloudflarestorage.com",
+            region_name="auto",
+        )
+        self.bucket = os.environ["R2_BUCKET_NAME"]
+
+    def upload(self, key, body, content_type=None, metadata=None):
+        params = {"Bucket": self.bucket, "Key": key, "Body": body, "Metadata": metadata or {}}
+        if content_type:
+            params["ContentType"] = content_type
+        self.client.put_object(**params)
+        return key
+
+    def download(self, key):
+        try:
+            return self.client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
+        except ClientError:
+            return None
+
+    def delete(self, key):
+        self.client.delete_object(Bucket=self.bucket, Key=key)
+        return True
+
+    def exists(self, key):
+        try:
+            self.client.head_object(Bucket=self.bucket, Key=key)
+            return True
+        except ClientError:
+            return False
+
+    def url(self, key, expires_in=3600):
+        return self.client.generate_presigned_url(
+            "get_object", Params={"Bucket": self.bucket, "Key": key}, ExpiresIn=expires_in
+        )
+
+    def list(self, prefix=None, max_keys=1000):
+        params = {"Bucket": self.bucket, "MaxKeys": max_keys}
+        if prefix:
+            params["Prefix"] = prefix
+        response = self.client.list_objects_v2(**params)
+        return [
+            {"key": o["Key"], "size": o["Size"], "last_modified": o["LastModified"]}
+            for o in response.get("Contents", [])
+        ]
+```
+
 ### 使用例
 
 ```ruby
@@ -582,6 +875,25 @@ rescue Aws::S3::Errors::AccessDenied
 rescue Aws::S3::Errors::ServiceError => e
   puts "S3 error: #{e.message}"
 end
+```
+
+**🐍 Python:** boto3はエラーごとの例外クラスを持たず、`ClientError`を捕捉して`e.response["Error"]["Code"]`（例: `NoSuchKey` / `NoSuchBucket` / `AccessDenied`）で分岐する。
+
+```python
+from botocore.exceptions import ClientError
+
+try:
+    r2_client.get_object(Bucket=bucket, Key=key)
+except ClientError as e:
+    code = e.response["Error"]["Code"]
+    if code == "NoSuchKey":
+        print("Object not found")
+    elif code == "NoSuchBucket":
+        print("Bucket not found")
+    elif code == "AccessDenied":
+        print("Access denied - check your credentials")
+    else:
+        print(f"S3 error: {e}")
 ```
 
 ---
